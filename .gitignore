@@ -20,3 +20,7 @@
 reports/*.json
 !reports/.gitkeep
 out/
+
+# LanceDB local datasets and bench scratch
+data/
+*.lance/

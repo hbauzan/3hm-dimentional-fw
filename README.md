@@ -2,11 +2,24 @@
 
 A high-performance, deterministic, hardware-accelerated 3-tier semantic firewall and containment gateway for Large Language Models (LLMs) and vector manifolds.
 
+## Build
+
+Requires the Rust toolchain pinned in `rust-toolchain.toml` (1.94.1) and Cargo. From the workspace root:
+
+```bash
+cargo fmt --all -- --check
+cargo clippy --workspace --all-targets -- -D warnings
+cargo test --workspace
+```
+
+Copy `.env.example` to `.env` for local endpoints. `.env` stays untracked.
+
 ## Architecture & Roadmap
 
-For architecture specification and phased execution roadmap, see:
 - [Deterministic AI Engineering Roadmap](roadmap/deterministic-ai-roadmap.md)
 - [Architect Initial Instructions & Grounding](roadmap/Arquitect-initial-instrucctions.md)
+- [Architecture spec](architecture_spec.md)
+- [Domain language](CONTEXT.md)
 
 ---
 

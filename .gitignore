@@ -1,0 +1,22 @@
+# Build artifacts
+/target/
+**/*.rs.bk
+*.orig
+
+# IDE & OS files
+.DS_Store
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Environment & local secrets
+.env
+.env.local
+*.pem
+*.key
+
+# Test & telemetry dumps
+reports/*.json
+!reports/.gitkeep
+out/

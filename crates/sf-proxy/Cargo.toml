@@ -10,3 +10,14 @@ description = "OpenAI-compatible 3-tier semantic firewall proxy"
 [dependencies]
 sf-kernels = { path = "../sf-kernels" }
 sf-storage = { path = "../sf-storage" }
+axum = { workspace = true }
+tokio = { workspace = true }
+async-trait = { workspace = true }
+bytes = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+sha2 = { workspace = true }
+
+[dev-dependencies]
+tower = { workspace = true }
+http-body-util = "0.1"

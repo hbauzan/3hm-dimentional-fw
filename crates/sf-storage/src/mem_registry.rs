@@ -29,4 +29,8 @@ impl MemoryRegistry {
     pub fn is_empty(&self) -> bool {
         self.locks_by_id.is_empty()
     }
+
+    pub fn locks(&self) -> Vec<Arc<DomainHypercubeLock>> {
+        self.locks_by_id.values().cloned().collect()
+    }
 }

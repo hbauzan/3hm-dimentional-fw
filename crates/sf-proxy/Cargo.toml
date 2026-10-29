@@ -12,12 +12,22 @@ sf-kernels = { path = "../sf-kernels" }
 sf-storage = { path = "../sf-storage" }
 axum = { workspace = true }
 tokio = { workspace = true }
-async-trait = { workspace = true }
+tokio-stream = { workspace = true }
+tonic = { workspace = true }
+tonic-prost = { workspace = true }
+prost = { workspace = true }
+reqwest = { workspace = true }
 bytes = { workspace = true }
+futures-util = { workspace = true }
+async-trait = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 sha2 = { workspace = true }
+http = "1"
 
 [dev-dependencies]
 tower = { workspace = true }
 http-body-util = "0.1"
+
+[build-dependencies]
+tonic-prost-build = { workspace = true }

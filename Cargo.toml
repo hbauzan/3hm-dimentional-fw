@@ -19,20 +19,24 @@ publish = false
 # Storage & columnar engine. sf-storage imports Arrow exclusively via
 # lancedb::arrow::{arrow_array, arrow_buffer, arrow_schema}. The exact pins
 # force the resolver onto 58.0.0 (caret "58.0.0" would float inside ^58).
-lancedb = { version = "0.40.0", default-features = false }
-arrow-array = "=58.0.0"
-arrow-buffer = "=58.0.0"
-arrow-schema = "=58.0.0"
+# `remote` is required to compile 0.40.0: `Error::Http` is cfg-gated but `job.rs` names it unconditionally.
+lancedb = { version = "0.40.0", default-features = false, features = ["remote"] }
+# `=58.0.0` does not resolve: datafusion 54 (pulled by lancedb 0.40.0) requires arrow-schema ^58.3.0.
+# 58.4.1 is the newest 58.x that satisfies that floor and stays off Arrow 60.
+arrow-array = "=58.4.1"
+arrow-buffer = "=58.4.1"
+arrow-schema = "=58.4.1"
 
 # Async runtime & HTTP/gRPC proxy
 tokio = { version = "1.43.0", features = ["rt-multi-thread", "macros", "net", "time", "sync", "signal", "io-util"] }
 tokio-stream = "0.1.17"
 axum = { version = "0.8.1", features = ["http1", "http2", "json"] }
 reqwest = { version = "0.12.12", default-features = false, features = ["json", "stream", "http2", "rustls-tls"] }
-tonic = { version = "0.12.3", features = ["transport", "prost"] }
-tonic-build = "0.12.3"
-prost = "0.13.4"
-prost-build = "0.13.4"
+# 0.14 matches the prost/tonic line that `lancedb` `remote` pulls. 0.12/0.13 cannot unify with it.
+tonic = { version = "0.14", features = ["transport", "prost"] }
+tonic-build = "0.14"
+prost = "0.14"
+prost-build = "0.14"
 bytes = "1.10.0"
 futures-util = "0.3.31"
 async-trait = "0.1.86"

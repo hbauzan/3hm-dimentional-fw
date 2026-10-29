@@ -9,3 +9,20 @@ description = "LanceDB domain-hypercube registry, calibration, and sf-ingest"
 
 [dependencies]
 sf-kernels = { path = "../sf-kernels" }
+lancedb = { workspace = true }
+arrow-array = { workspace = true }
+arrow-buffer = { workspace = true }
+arrow-schema = { workspace = true }
+arc-swap = { workspace = true }
+tokio = { workspace = true }
+sha2 = { workspace = true }
+clap = { workspace = true }
+futures-util = { workspace = true }
+
+[dev-dependencies]
+rand = { workspace = true }
+rand_chacha = { workspace = true }
+
+[[bin]]
+name = "sf-ingest"
+path = "src/bin/sf_ingest.rs"

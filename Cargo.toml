@@ -60,7 +60,6 @@ panic = "abort"
 strip = "symbols"
 
 [profile.bench]
-opt-level = 3
-lto = "fat"
-codegen-units = 1
 inherits = "release"
+lto = "thin"
+codegen-units = 1

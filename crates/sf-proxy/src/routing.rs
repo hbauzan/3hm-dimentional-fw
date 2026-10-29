@@ -5,7 +5,7 @@ use crate::cascade::evaluate_three_tier_cascade;
 use crate::telemetry::BreachErrorEnvelope;
 use axum::http::HeaderMap;
 use sf_kernels::{cosine_similarity_1024, AlignedVec1024, DomainHypercubeLock, L3InspectionMode};
-use sf_storage::MemoryRegistry;
+use sf_storage::HotRegistry;
 use std::sync::Arc;
 
 #[derive(Debug)]
@@ -26,7 +26,7 @@ pub enum RouteFailure {
 }
 
 pub struct RouteInput<'a> {
-    pub registry: &'a MemoryRegistry,
+    pub registry: &'a HotRegistry,
     pub headers: &'a HeaderMap,
     pub default_domain: &'a str,
     pub full_prompt: &'a AlignedVec1024,
@@ -109,7 +109,7 @@ pub fn evaluate_route(input: RouteInput<'_>) -> Result<u64, Box<RouteFailure>> {
 }
 
 fn lock_sets(
-    registry: &MemoryRegistry,
+    registry: &HotRegistry,
     headers: &HeaderMap,
     default_domain: &str,
 ) -> Result<LockSets, RouteError> {
@@ -117,6 +117,7 @@ fn lock_sets(
         .get("x-semantic-domain")
         .and_then(|value| value.to_str().ok())
         .unwrap_or(default_domain);
+    let snapshot = registry.load();
     if requested == "*" {
         let require_all_allowlists = headers
             .get("x-sf-wildcard-mode")
@@ -124,11 +125,11 @@ fn lock_sets(
             == Some("all");
         let mut denylists = Vec::new();
         let mut allowlists = Vec::new();
-        for lock in registry.locks() {
+        for lock in snapshot.locks() {
             if lock.polarity == 1 {
-                denylists.push(lock);
+                denylists.push(Arc::clone(lock));
             } else {
-                allowlists.push(lock);
+                allowlists.push(Arc::clone(lock));
             }
         }
         if allowlists.is_empty() && denylists.is_empty() {
@@ -143,7 +144,7 @@ fn lock_sets(
             require_all_allowlists,
         });
     }
-    let Some(lock) = registry.get(requested) else {
+    let Some(lock) = snapshot.get(requested) else {
         return Err(RouteError {
             status_code: "UNKNOWN_DOMAIN_LOCK",
             message: format!("Fail-closed: domain '{requested}' not found in registry."),

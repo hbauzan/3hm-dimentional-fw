@@ -7,9 +7,10 @@ use bytes::Bytes;
 use clap::Parser;
 use hdrhistogram::Histogram;
 use http_body_util::BodyExt;
-use sf_kernels::{AlignedVec1024, DomainHypercubeLock, LockSpec, NoiseBitmask1024, DIM, MAX_TOPK};
+use sf_bench::generate_canonical_locks;
+use sf_kernels::{AlignedVec1024, DIM};
 use sf_proxy::{router, MockBatchEmbedder, MockUpstreamForwarder, ProxyAppState};
-use sf_storage::MemoryRegistry;
+use sf_storage::{write_locks, HotRegistry, TABLE_NAME};
 use tokio::sync::Semaphore;
 use tower::ServiceExt;
 
@@ -21,31 +22,6 @@ struct Args {
     duration_secs: u64,
     #[arg(long, default_value_t = 2.0)]
     assert_p99_ms: f64,
-}
-
-fn pass_lock() -> DomainHypercubeLock {
-    let mut centroid = AlignedVec1024::zeros();
-    centroid.data[0] = 1.0;
-    let mut lo = AlignedVec1024::zeros();
-    let mut hi = AlignedVec1024::zeros();
-    lo.data.fill(-0.05);
-    hi.data.fill(0.05);
-    hi.data[0] = 1.2;
-    DomainHypercubeLock::from_spec(LockSpec {
-        domain_id: "python".to_string(),
-        centroid,
-        lo,
-        hi,
-        epsilon: 0.0,
-        noise_mask: NoiseBitmask1024::new_bge_m3_default(),
-        top_k_indices: [0u16; MAX_TOPK],
-        top_k_len: 1,
-        quorum_k: 103,
-        l1_cosine_threshold: 0.2,
-        l2_clause_threshold: 0.2,
-        polarity: 0,
-        domain_version: 1,
-    })
 }
 
 fn prompt_m16() -> String {
@@ -69,31 +45,64 @@ fn rss_mb() -> f64 {
 #[tokio::main]
 async fn main() {
     let args = Args::parse();
-    let centroid = {
-        let lock = pass_lock();
-        lock.centroid
-    };
+
+    // 1. Generate the 55 canonical locks (quorum_k = 103, 985 active dims)
+    let locks = generate_canonical_locks();
+    assert_eq!(locks.len(), 55, "canonical registry has 55 locks");
+    assert_eq!(
+        locks[0].noise_mask.active_count(),
+        985,
+        "active dimensions must be 985"
+    );
+    assert_eq!(locks[0].quorum_k, 103, "quorum_k must be 103");
+
+    // 2. Persist all 55 locks into a temporary LanceDB table on disk
+    let temp_dir = std::env::temp_dir().join(format!("sf-loadbench-lance-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&temp_dir);
+    std::fs::create_dir_all(&temp_dir).expect("create temp dir");
+    let uri = temp_dir.to_str().expect("uri to str");
+    write_locks(uri, TABLE_NAME, &locks)
+        .await
+        .expect("persist 55 locks to lancedb");
+
+    // 3. Load HotRegistry from that LanceDB table into ProxyAppState
+    let registry = Arc::new(
+        HotRegistry::load_from_lancedb(uri, TABLE_NAME)
+            .await
+            .expect("load hot registry from lancedb"),
+    );
+    assert_eq!(registry.locks().len(), 55);
+
+    let target_lock = registry
+        .get("python_receta")
+        .expect("canonical lock python_receta must exist in registry");
+    let centroid = target_lock.centroid;
+
     let state = Arc::new(ProxyAppState {
-        registry: MemoryRegistry::from_locks([pass_lock()]),
+        registry,
         embedder: Arc::new(MockBatchEmbedder {
             pass_vector: centroid,
             breach_vector: AlignedVec1024 { data: [0.0; DIM] },
         }),
         upstream: Arc::new(MockUpstreamForwarder),
-        default_domain: "python".to_string(),
+        default_domain: "python_receta".to_string(),
         max_telemetry_coords: 1,
     });
     let app = router(state);
+
     let body = Bytes::from(format!(
         r#"{{"messages":[{{"role":"user","content":"{}"}}]}}"#,
         prompt_m16()
     ));
+
+    // 4. Execute the load test evaluating Mode C (quorum_k = 103, 985 active dims)
     let total = args.rps.saturating_mul(args.duration_secs).max(1);
     let interval = Duration::from_nanos(1_000_000_000 / args.rps.max(1));
     let semaphore = Arc::new(Semaphore::new(128));
     let mut histogram = Histogram::<u64>::new(3).expect("histogram");
     let mut next = tokio::time::Instant::now();
     let mut inflight = tokio::task::JoinSet::new();
+
     for _ in 0..total {
         tokio::time::sleep_until(next).await;
         next += interval;
@@ -108,7 +117,8 @@ async fn main() {
                         .method("POST")
                         .uri("/v1/chat/completions")
                         .header("content-type", "application/json")
-                        .header("x-semantic-domain", "python")
+                        .header("x-semantic-domain", "python_receta")
+                        .header("x-ddi-mode", "mode_c")
                         .body(Body::from(body))
                         .unwrap(),
                 )
@@ -126,10 +136,15 @@ async fn main() {
     while let Some(joined) = inflight.join_next().await {
         record(&mut histogram, joined);
     }
+
+    // 5. Sample RSS after LanceDB load and requests complete
     let p50_ms = histogram.value_at_quantile(0.50) as f64 / 1_000_000.0;
     let p99_ms = histogram.value_at_quantile(0.99) as f64 / 1_000_000.0;
     let rss = rss_mb();
     println!("requests={total} p50_ms={p50_ms:.4} p99_ms={p99_ms:.4} rss_mb={rss:.2}");
+
+    let _ = std::fs::remove_dir_all(&temp_dir);
+
     let mut failed = false;
     if p99_ms >= args.assert_p99_ms.min(1.50) {
         eprintln!("p99 {p99_ms:.4} ms exceeds the SLA");

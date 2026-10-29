@@ -169,4 +169,4 @@ q8_rss: measure
 notes: "Q1 usa host-1.94 instalado. Q3 0 ULP en masks y bound 1e-14 en coseno por IEEE 754. Q8 mide en Slice 5 con evidencia empírica antes de rediseñar. Q5 Arrow quedó en =58.4.1: datafusion 54 exige arrow-schema ^58.3.0, así que =58.0.0 no resuelve."
 ```
 
-Decisiones aplicadas: toolchain `1.94.1`; wildcard `AnyAllowlist` ( `AllLocks` solo con `X-SF-Wildcard-Mode: all` ); coseno con \(|\Delta| < 10^{-14}\) y bitmask a 0 ULP; NeMo fuera de alcance; pins extra y Arrow `=58.0.0`; Slice 2 verde con NEON en este M4; `manifest.json` verbatim del roadmap; RSS medido en el Slice 5 sin rediseño previo.
+Decisiones aplicadas: toolchain `1.94.1`; wildcard `AnyAllowlist` ( `AllLocks` solo con `X-SF-Wildcard-Mode: all` ); coseno con \(|\Delta| < 10^{-14}\) y bitmask a 0 ULP; NeMo fuera de alcance; pins extra y Arrow `=58.4.1`; Slice 2 verde con NEON en este M4; `manifest.json` verbatim del roadmap; RSS medido en el Slice 5 sin rediseño previo.

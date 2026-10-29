@@ -5,7 +5,7 @@ use rand::Rng;
 use rand::SeedableRng;
 use rand_chacha::ChaCha8Rng;
 use sf_kernels::{
-    cosine_similarity_1024, AlignedVec1024, DomainHypercubeLock, L3InspectionMode, LockSpec,
+    scalar_cosine_similarity, AlignedVec1024, DomainHypercubeLock, L3InspectionMode, LockSpec,
     NoiseBitmask1024, DIM, MAX_TOPK,
 };
 use sf_proxy::evaluate_three_tier_cascade;
@@ -103,6 +103,54 @@ fn pair_lock(left: usize, right: usize, spike: usize) -> DomainHypercubeLock {
     })
 }
 
+pub fn generate_canonical_locks() -> Vec<DomainHypercubeLock> {
+    let mut locks = Vec::with_capacity(55);
+    for left in 0..DOMAIN_NAMES.len() {
+        for right in (left + 1)..DOMAIN_NAMES.len() {
+            let spike = locks.len();
+            locks.push(pair_lock_canonical(left, right, spike));
+        }
+    }
+    debug_assert_eq!(locks.len(), 55);
+    locks
+}
+
+fn pair_lock_canonical(left: usize, right: usize, spike: usize) -> DomainHypercubeLock {
+    let mut centroid = AlignedVec1024::zeros();
+    centroid.data[spike] = 1.0;
+    let mut lo = AlignedVec1024::zeros();
+    let mut hi = AlignedVec1024::zeros();
+    lo.data.fill(-0.02);
+    hi.data.fill(0.02);
+    lo.data[spike] = 0.5;
+    hi.data[spike] = 1.1;
+
+    let mut mu = [0.0f64; DIM];
+    mu[spike] = 1.0;
+    let mask = sf_storage::calibrate_noise_bitmask(&mu, &lo.data, &hi.data, 30);
+    debug_assert_eq!(mask.active_count(), 985);
+
+    let top_k_103 = sf_storage::top_k_indices(&mu, &lo.data, &hi.data, &mask);
+    let mut top_k = [0u16; MAX_TOPK];
+    top_k[..103].copy_from_slice(&top_k_103);
+
+    DomainHypercubeLock::from_spec(LockSpec {
+        domain_id: format!("{}_{}", DOMAIN_NAMES[left], DOMAIN_NAMES[right]),
+        centroid,
+        lo,
+        hi,
+        epsilon: 0.0,
+        noise_mask: mask,
+        top_k_indices: top_k,
+        top_k_len: 103,
+        quorum_k: 103,
+        l1_cosine_threshold: L1,
+        l2_clause_threshold: L1,
+        polarity: 0,
+        domain_version: 1,
+    })
+}
+
 fn attack_vector(spike: usize, outside: f32) -> AlignedVec1024 {
     let mut vector = AlignedVec1024::zeros();
     if spike < DIM {
@@ -134,7 +182,7 @@ pub fn evaluate_matrix(corpus: &RompepepeCorpus) -> EvalMatrix {
     let mut mode_c_blocked = 0usize;
     for attack in &corpus.attacks {
         let lock = &corpus.locks[attack.lock_index];
-        let cosine = cosine_similarity_1024(&attack.vector, &lock.centroid);
+        let cosine = scalar_cosine_similarity(&attack.vector, &lock.centroid);
         if cosine >= lock.l1_cosine_threshold {
             cosine_leaks += 1;
         }

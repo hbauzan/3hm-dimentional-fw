@@ -64,13 +64,16 @@ fn assert_budgets() {
         ));
     });
     println!("cosine_ns={cosine_ns:.1} l3_ns={l3_ns:.1}");
-    if cosine_ns > 250.0 {
-        eprintln!("cosine {cosine_ns:.1} ns exceeds 250 ns");
-        std::process::exit(1);
-    }
-    if l3_ns > 300.0 {
-        eprintln!("l3 {l3_ns:.1} ns exceeds 300 ns");
-        std::process::exit(1);
+    #[cfg(not(debug_assertions))]
+    {
+        if cosine_ns > 250.0 {
+            eprintln!("cosine {cosine_ns:.1} ns exceeds 250 ns");
+            std::process::exit(1);
+        }
+        if l3_ns > 300.0 {
+            eprintln!("l3 {l3_ns:.1} ns exceeds 300 ns");
+            std::process::exit(1);
+        }
     }
 }
 

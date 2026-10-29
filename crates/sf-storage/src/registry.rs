@@ -57,8 +57,34 @@ impl DomainRegistry {
         })
     }
 
+    pub fn from_locks(locks: impl IntoIterator<Item = DomainHypercubeLock>) -> Self {
+        let mut locks_by_id = HashMap::new();
+        let mut all_locks = Vec::new();
+        for lock in locks {
+            let arc = Arc::new(lock);
+            locks_by_id.insert(arc.domain_id.clone(), Arc::clone(&arc));
+            all_locks.push(arc);
+        }
+        Self {
+            locks_by_id,
+            all_locks,
+        }
+    }
+
     pub fn get(&self, domain_id: &str) -> Option<Arc<DomainHypercubeLock>> {
         self.locks_by_id.get(domain_id).cloned()
+    }
+
+    pub fn locks(&self) -> &[Arc<DomainHypercubeLock>] {
+        &self.all_locks
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.all_locks.is_empty()
+    }
+
+    pub fn len(&self) -> usize {
+        self.all_locks.len()
     }
 }
 
@@ -73,12 +99,43 @@ impl HotRegistry {
         }
     }
 
+    pub fn from_domain_registry(registry: DomainRegistry) -> Self {
+        Self::new(Arc::new(registry))
+    }
+
+    pub fn from_locks(locks: impl IntoIterator<Item = DomainHypercubeLock>) -> Self {
+        Self::new(Arc::new(DomainRegistry::from_locks(locks)))
+    }
+
+    pub async fn load_from_lancedb(uri: &str, table_name: &str) -> Result<Self, RegistryError> {
+        let registry = crate::lance_store::load_registry_table(uri, table_name).await?;
+        Ok(Self::new(Arc::new(registry)))
+    }
+
+    pub async fn reload_from_lancedb(
+        &self,
+        uri: &str,
+        table_name: &str,
+    ) -> Result<(), RegistryError> {
+        let registry = crate::lance_store::load_registry_table(uri, table_name).await?;
+        self.store(Arc::new(registry));
+        Ok(())
+    }
+
     pub fn load(&self) -> arc_swap::Guard<Arc<DomainRegistry>> {
         self.inner.load()
     }
 
     pub fn store(&self, next: Arc<DomainRegistry>) {
         self.inner.store(next);
+    }
+
+    pub fn get(&self, domain_id: &str) -> Option<Arc<DomainHypercubeLock>> {
+        self.load().get(domain_id)
+    }
+
+    pub fn locks(&self) -> Vec<Arc<DomainHypercubeLock>> {
+        self.load().locks().to_vec()
     }
 }
 
@@ -123,6 +180,147 @@ pub fn record_batch_from_calibration(
             Arc::new(mask),
             Arc::new(UInt64Array::from(vec![calibration.rows])),
             Arc::new(digest),
+        ],
+    )
+    .map_err(|err| RegistryError {
+        message: err.to_string(),
+    })
+}
+
+pub fn record_batch_from_locks<'a>(
+    locks: impl IntoIterator<Item = &'a DomainHypercubeLock>,
+) -> Result<RecordBatch, RegistryError> {
+    let schema = domain_hypercube_arrow_schema();
+    let locks: Vec<&'a DomainHypercubeLock> = locks.into_iter().collect();
+    let n = locks.len();
+
+    let mut domain_ids = Vec::with_capacity(n);
+    let mut versions = Vec::with_capacity(n);
+    let mut polarities = Vec::with_capacity(n);
+    let mut l1_vec = Vec::with_capacity(n);
+    let mut l2_vec = Vec::with_capacity(n);
+    let mut eps_vec = Vec::with_capacity(n);
+    let mut quorum_vec = Vec::with_capacity(n);
+    let mut centroid_floats = Vec::with_capacity(n * DIM);
+    let mut lo_floats = Vec::with_capacity(n * DIM);
+    let mut hi_floats = Vec::with_capacity(n * DIM);
+    let mut top_k_u16 = Vec::with_capacity(n * usize::from(DEFAULT_QUORUM_K));
+    let mut mask_bytes = Vec::with_capacity(n * 128);
+    let mut doc_counts = Vec::with_capacity(n);
+    let mut manifests = Vec::with_capacity(n * 32);
+
+    for lock in locks {
+        domain_ids.push(lock.domain_id.clone());
+        versions.push(lock.domain_version);
+        polarities.push(lock.polarity);
+        l1_vec.push(lock.l1_cosine_threshold);
+        l2_vec.push(lock.l2_clause_threshold);
+        eps_vec.push(lock.epsilon);
+        quorum_vec.push(lock.quorum_k);
+        centroid_floats.extend_from_slice(&lock.centroid.data);
+        for dim in 0..DIM {
+            lo_floats.push(lock.lo_dilated.data[dim] + lock.epsilon);
+            hi_floats.push(lock.hi_dilated.data[dim] - lock.epsilon);
+        }
+        let k = usize::from(DEFAULT_QUORUM_K);
+        top_k_u16.extend_from_slice(&lock.top_k_indices[..k]);
+        for word in lock.noise_mask.words {
+            mask_bytes.extend_from_slice(&word.to_le_bytes());
+        }
+        doc_counts.push(1u64);
+        manifests.extend_from_slice(&[0u8; 32]);
+    }
+
+    let centroid_child = Float32Array::from(centroid_floats);
+    let centroid_arr = FixedSizeListArray::try_new(
+        Arc::new(Field::new(
+            "item",
+            lancedb::arrow::arrow_schema::DataType::Float32,
+            false,
+        )),
+        DIM as i32,
+        Arc::new(centroid_child),
+        None,
+    )
+    .map_err(|err| RegistryError {
+        message: err.to_string(),
+    })?;
+
+    let lo_child = Float32Array::from(lo_floats);
+    let lo_arr = FixedSizeListArray::try_new(
+        Arc::new(Field::new(
+            "item",
+            lancedb::arrow::arrow_schema::DataType::Float32,
+            false,
+        )),
+        DIM as i32,
+        Arc::new(lo_child),
+        None,
+    )
+    .map_err(|err| RegistryError {
+        message: err.to_string(),
+    })?;
+
+    let hi_child = Float32Array::from(hi_floats);
+    let hi_arr = FixedSizeListArray::try_new(
+        Arc::new(Field::new(
+            "item",
+            lancedb::arrow::arrow_schema::DataType::Float32,
+            false,
+        )),
+        DIM as i32,
+        Arc::new(hi_child),
+        None,
+    )
+    .map_err(|err| RegistryError {
+        message: err.to_string(),
+    })?;
+
+    let topk_child = UInt16Array::from(top_k_u16);
+    let topk_arr = FixedSizeListArray::try_new(
+        Arc::new(Field::new(
+            "item",
+            lancedb::arrow::arrow_schema::DataType::UInt16,
+            false,
+        )),
+        i32::from(DEFAULT_QUORUM_K),
+        Arc::new(topk_child),
+        None,
+    )
+    .map_err(|err| RegistryError {
+        message: err.to_string(),
+    })?;
+
+    let mask_arr =
+        FixedSizeBinaryArray::try_new(128, Buffer::from(mask_bytes), None).map_err(|err| {
+            RegistryError {
+                message: err.to_string(),
+            }
+        })?;
+    let digest_arr =
+        FixedSizeBinaryArray::try_new(32, Buffer::from(manifests), None).map_err(|err| {
+            RegistryError {
+                message: err.to_string(),
+            }
+        })?;
+
+    RecordBatch::try_new(
+        schema,
+        vec![
+            Arc::new(StringArray::from(domain_ids)),
+            Arc::new(UInt64Array::from(versions)),
+            Arc::new(UInt8Array::from(polarities)),
+            Arc::new(Float32Array::from(l1_vec)),
+            Arc::new(Float32Array::from(l2_vec)),
+            Arc::new(Float32Array::from(eps_vec)),
+            Arc::new(UInt16Array::from(quorum_vec)),
+            Arc::new(centroid_arr),
+            Arc::new(lo_arr),
+            Arc::new(hi_arr),
+            Arc::new(topk_arr),
+            Arc::new(mask_arr),
+            Arc::new(UInt64Array::from(doc_counts)),
+            Arc::new(digest_arr),
         ],
     )
     .map_err(|err| RegistryError {

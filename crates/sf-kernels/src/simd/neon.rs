@@ -1,4 +1,4 @@
-//! NEON kernels. Cosine uses the same even/odd `f64` FMA chain as the scalar reference
+//! NEON kernels. Cosine uses 8 independent f64 FMA chains (4 float64x2_t vectors)
 //! so the absolute error stays under `1e-14` on arbitrary finite inputs.
 
 use crate::{AlignedVec1024, DomainHypercubeLock, DIM, NOISE_MASK_WORDS};

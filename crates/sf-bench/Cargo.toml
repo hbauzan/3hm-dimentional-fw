@@ -1,0 +1,13 @@
+[package]
+name = "sf-bench"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+description = "Rompepepe 220 harness and 1000 RPS gateway load SLA"
+
+[dependencies]
+sf-kernels = { path = "../sf-kernels" }
+sf-proxy = { path = "../sf-proxy" }
+sf-storage = { path = "../sf-storage" }

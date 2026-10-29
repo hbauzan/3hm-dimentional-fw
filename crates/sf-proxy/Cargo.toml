@@ -1,0 +1,12 @@
+[package]
+name = "sf-proxy"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+description = "OpenAI-compatible 3-tier semantic firewall proxy"
+
+[dependencies]
+sf-kernels = { path = "../sf-kernels" }
+sf-storage = { path = "../sf-storage" }

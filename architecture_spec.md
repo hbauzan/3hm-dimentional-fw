@@ -1,6 +1,6 @@
 # Architecture spec — sf-core
 
-Toolchain: Cargo only. Active compiler pin: Rust `1.94.1` (`rust-toolchain.toml`). Crate MSRV `1.91` matches `lancedb 0.40.0` / `lance 13.0.0`. Arrow crates are exact `=58.0.0` and are imported from `sf-storage` only as `lancedb::arrow::{arrow_array, arrow_buffer, arrow_schema}`.
+Toolchain: Cargo only. Active compiler pin: Rust `1.94.1` (`rust-toolchain.toml`). Crate MSRV `1.91` matches `lancedb 0.40.0` / `lance 13.0.0`. Arrow crates are exact `=58.4.1` (`=58.0.0` does not resolve: DataFusion 54 requires `arrow-schema ^58.3.0`) and are imported from `sf-storage` only as `lancedb::arrow::{arrow_array, arrow_buffer, arrow_schema}`.
 
 ## ADR-001 — RFC-003 numerical representation
 

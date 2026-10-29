@@ -5,7 +5,7 @@ use axum::http::{Request, StatusCode};
 use http_body_util::BodyExt;
 use sf_kernels::{AlignedVec1024, DomainHypercubeLock, LockSpec, NoiseBitmask1024, DIM, MAX_TOPK};
 use sf_proxy::{router, MockBatchEmbedder, MockUpstreamForwarder, ProxyAppState};
-use sf_storage::MemoryRegistry;
+use sf_storage::HotRegistry;
 use tower::ServiceExt;
 
 fn vector_at(index: usize) -> AlignedVec1024 {
@@ -51,11 +51,11 @@ impl Harness {
     fn new(pass_axis: usize) -> Self {
         let pass = vector_at(pass_axis);
         let state = Arc::new(ProxyAppState {
-            registry: MemoryRegistry::from_locks([
+            registry: Arc::new(HotRegistry::from_locks([
                 lock("python", 0, 0, true),
                 lock("legal", 1, 0, false),
                 lock("deny-sql", 2, 1, false),
-            ]),
+            ])),
             embedder: Arc::new(MockBatchEmbedder {
                 pass_vector: pass,
                 breach_vector: AlignedVec1024::zeros(),
@@ -132,6 +132,102 @@ async fn named_denylist_uses_inverted_cosine() {
         )
         .await;
     assert_eq!(status, StatusCode::OK, "{body}");
+}
+
+#[tokio::test]
+async fn live_hot_swap_from_lancedb_increments_domain_version() {
+    let temp_dir = std::env::temp_dir().join(format!("sf-e2e-lance-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&temp_dir);
+    std::fs::create_dir_all(&temp_dir).unwrap();
+    let uri = temp_dir.to_str().unwrap();
+
+    let lock_v1 = lock("python", 0, 0, true);
+    assert_eq!(lock_v1.domain_version, 1);
+    sf_storage::write_locks(uri, sf_storage::TABLE_NAME, &[lock_v1])
+        .await
+        .unwrap();
+
+    let hot_registry = Arc::new(
+        sf_storage::HotRegistry::load_from_lancedb(uri, sf_storage::TABLE_NAME)
+            .await
+            .unwrap(),
+    );
+
+    let pass = vector_at(0);
+    let breach = AlignedVec1024::zeros();
+
+    let state = Arc::new(ProxyAppState {
+        registry: Arc::clone(&hot_registry),
+        embedder: Arc::new(MockBatchEmbedder {
+            pass_vector: pass,
+            breach_vector: breach,
+        }),
+        upstream: Arc::new(MockUpstreamForwarder),
+        default_domain: "python".to_string(),
+        max_telemetry_coords: 4,
+    });
+    let app = router(state);
+
+    // 1. In-domain vector -> 200 OK (X-SF-Decision: PASS)
+    let pass_req = Request::builder()
+        .method("POST")
+        .uri("/v1/chat/completions")
+        .header("content-type", "application/json")
+        .header("x-semantic-domain", "python")
+        .body(Body::from(
+            r#"{"messages":[{"role":"user","content":"hello safe kernel"}]}"#,
+        ))
+        .unwrap();
+    let resp = app.clone().oneshot(pass_req).await.unwrap();
+    assert_eq!(resp.status(), StatusCode::OK);
+    assert_eq!(resp.headers().get("x-sf-decision").unwrap(), "PASS");
+
+    // 2. Breaching clause -> 403 Forbidden (ddi_ingress_breach) with domain_version = 1
+    let breach_req = Request::builder()
+        .method("POST")
+        .uri("/v1/chat/completions")
+        .header("content-type", "application/json")
+        .header("x-semantic-domain", "python")
+        .body(Body::from(
+            r#"{"messages":[{"role":"user","content":"hello safe. BREACH"}]}"#,
+        ))
+        .unwrap();
+    let resp = app.clone().oneshot(breach_req).await.unwrap();
+    assert_eq!(resp.status(), StatusCode::FORBIDDEN);
+    let bytes = resp.into_body().collect().await.unwrap().to_bytes();
+    let json: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
+    assert_eq!(json["error"]["type"], "ddi_ingress_breach");
+    assert_eq!(json["error"]["telemetry"]["domain_version"], 1);
+
+    // 3. Update lock in LanceDB to version 2, and hot-reload
+    let mut lock_v2 = lock("python", 0, 0, true);
+    lock_v2.domain_version = 2;
+    sf_storage::write_locks(uri, sf_storage::TABLE_NAME, &[lock_v2])
+        .await
+        .unwrap();
+    hot_registry
+        .reload_from_lancedb(uri, sf_storage::TABLE_NAME)
+        .await
+        .unwrap();
+
+    // 4. Send breaching request again -> 403 Forbidden with domain_version = 2
+    let breach_req2 = Request::builder()
+        .method("POST")
+        .uri("/v1/chat/completions")
+        .header("content-type", "application/json")
+        .header("x-semantic-domain", "python")
+        .body(Body::from(
+            r#"{"messages":[{"role":"user","content":"hello safe. BREACH"}]}"#,
+        ))
+        .unwrap();
+    let resp2 = app.oneshot(breach_req2).await.unwrap();
+    assert_eq!(resp2.status(), StatusCode::FORBIDDEN);
+    let bytes2 = resp2.into_body().collect().await.unwrap().to_bytes();
+    let json2: serde_json::Value = serde_json::from_slice(&bytes2).unwrap();
+    assert_eq!(json2["error"]["type"], "ddi_ingress_breach");
+    assert_eq!(json2["error"]["telemetry"]["domain_version"], 2);
+
+    let _ = std::fs::remove_dir_all(&temp_dir);
 }
 
 #[test]

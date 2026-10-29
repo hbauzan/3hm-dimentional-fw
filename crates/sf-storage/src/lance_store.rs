@@ -1,11 +1,14 @@
 //! LanceDB write and read of the domain-hypercube table.
 
-use crate::registry::{record_batch_from_calibration, DomainRegistry, LockMeta, RegistryError};
+use crate::registry::{
+    record_batch_from_calibration, record_batch_from_locks, DomainRegistry, LockMeta, RegistryError,
+};
 use crate::schema::TABLE_NAME;
 use crate::Calibration;
 use futures_util::TryStreamExt;
 use lancedb::arrow::arrow_array::RecordBatch;
 use lancedb::query::{ExecutableQuery, QueryBase};
+use sf_kernels::DomainHypercubeLock;
 
 pub struct IngestSpec<'a> {
     pub uri: &'a str,
@@ -34,6 +37,22 @@ pub async fn write_calibration(spec: IngestSpec<'_>) -> Result<(), RegistryError
     )?;
     let conn = lancedb::connect(spec.uri).execute().await.map_err(err)?;
     conn.create_table(TABLE_NAME, batch)
+        .mode(lancedb::database::CreateTableMode::Overwrite)
+        .execute()
+        .await
+        .map_err(err)?;
+    Ok(())
+}
+
+pub async fn write_locks(
+    uri: &str,
+    table_name: &str,
+    locks: &[DomainHypercubeLock],
+) -> Result<(), RegistryError> {
+    let batch = record_batch_from_locks(locks)?;
+    let conn = lancedb::connect(uri).execute().await.map_err(err)?;
+    conn.create_table(table_name, batch)
+        .mode(lancedb::database::CreateTableMode::Overwrite)
         .execute()
         .await
         .map_err(err)?;
@@ -41,8 +60,15 @@ pub async fn write_calibration(spec: IngestSpec<'_>) -> Result<(), RegistryError
 }
 
 pub async fn load_registry(uri: &str) -> Result<DomainRegistry, RegistryError> {
+    load_registry_table(uri, TABLE_NAME).await
+}
+
+pub async fn load_registry_table(
+    uri: &str,
+    table_name: &str,
+) -> Result<DomainRegistry, RegistryError> {
     let conn = lancedb::connect(uri).execute().await.map_err(err)?;
-    let table = conn.open_table(TABLE_NAME).execute().await.map_err(err)?;
+    let table = conn.open_table(table_name).execute().await.map_err(err)?;
     let stream = table
         .query()
         .limit(1_000_000)

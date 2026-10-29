@@ -43,6 +43,7 @@ fn docstring_isolation_stays_under_two_microseconds() {
         std::hint::black_box(clauses);
     }
     let nanos = elapsed.as_nanos() / u128::from(rounds);
+    eprintln!("segmenter_release_avg_ns={nanos}");
     // Debug builds do not meet the 2 µs figure; `cargo test --release` does.
     let budget = if cfg!(debug_assertions) {
         100_000

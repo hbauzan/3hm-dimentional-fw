@@ -5,7 +5,7 @@ use axum::http::{Request, StatusCode};
 use http_body_util::BodyExt;
 use sf_kernels::{AlignedVec1024, DomainHypercubeLock, LockSpec, NoiseBitmask1024, DIM, MAX_TOPK};
 use sf_proxy::{router, MockBatchEmbedder, MockUpstreamForwarder, ProxyAppState};
-use sf_storage::MemoryRegistry;
+use sf_storage::HotRegistry;
 use tower::ServiceExt;
 
 fn pass_vector() -> AlignedVec1024 {
@@ -43,7 +43,7 @@ fn python_lock(centroid: AlignedVec1024) -> DomainHypercubeLock {
 fn app() -> axum::Router {
     let centroid = pass_vector();
     let state = Arc::new(ProxyAppState {
-        registry: MemoryRegistry::from_locks([python_lock(centroid)]),
+        registry: Arc::new(HotRegistry::from_locks([python_lock(centroid)])),
         embedder: Arc::new(MockBatchEmbedder {
             pass_vector: centroid,
             breach_vector: AlignedVec1024::zeros(),

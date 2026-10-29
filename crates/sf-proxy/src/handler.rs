@@ -11,11 +11,11 @@ use axum::Json;
 use bytes::Bytes;
 use serde::Deserialize;
 use sf_kernels::L3InspectionMode;
-use sf_storage::MemoryRegistry;
+use sf_storage::HotRegistry;
 use std::sync::Arc;
 
 pub struct ProxyAppState {
-    pub registry: MemoryRegistry,
+    pub registry: Arc<HotRegistry>,
     pub embedder: Arc<dyn BatchEmbedderClient>,
     pub upstream: Arc<dyn UpstreamLlmForwarder>,
     pub default_domain: String,

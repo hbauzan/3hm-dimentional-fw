@@ -1,2 +1,8 @@
-//! Benchmark harness library. Fixtures land with Slice 5.
-pub use sf_kernels::DIM;
+//! Rompepepe fixtures and the in-process load harness.
+
+mod synthetic_fixtures;
+
+pub use synthetic_fixtures::{
+    assert_publication_bounds, evaluate_matrix, generate_corpus, AttackCase, EvalMatrix,
+    RompepepeCorpus, DOMAIN_NAMES, FIXTURE_SEED,
+};

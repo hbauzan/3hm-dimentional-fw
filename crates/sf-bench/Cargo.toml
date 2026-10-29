@@ -11,3 +11,22 @@ description = "Rompepepe 220 harness and 1000 RPS gateway load SLA"
 sf-kernels = { path = "../sf-kernels" }
 sf-proxy = { path = "../sf-proxy" }
 sf-storage = { path = "../sf-storage" }
+tokio = { workspace = true }
+axum = { workspace = true }
+tower = { workspace = true }
+hdrhistogram = { workspace = true }
+rand = { workspace = true }
+rand_chacha = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+bytes = { workspace = true }
+http-body-util = "0.1"
+clap = { workspace = true }
+
+[[bin]]
+name = "rompepepe_eval"
+path = "src/bin/rompepepe_eval.rs"
+
+[[bin]]
+name = "load_benchmark"
+path = "src/bin/load_benchmark.rs"

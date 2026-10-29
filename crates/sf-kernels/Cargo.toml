@@ -8,3 +8,13 @@ publish.workspace = true
 description = "IEEE 754 aligned tensors, scalar and SIMD gates for the semantic firewall"
 
 [dependencies]
+
+[dev-dependencies]
+half = { workspace = true }
+rand = { workspace = true }
+rand_chacha = { workspace = true }
+criterion = { workspace = true }
+
+[[bench]]
+name = "kernel_bench"
+harness = false

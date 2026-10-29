@@ -177,7 +177,7 @@ fn eval_mode_bc(
     mode: L3InspectionMode,
     max_telemetry_breaches: usize,
 ) -> L3EvalResult {
-    let pass_mask = scalar_hypercube_bitmask(q, lock);
+    let pass_mask = crate::evaluate_hypercube_bitmask(q, lock);
     let votes: u16 = pass_mask.iter().map(|word| word.count_ones() as u16).sum();
     let active_dims = u16::try_from(lock.noise_mask.active_count()).unwrap_or(u16::MAX);
     let required = match mode {

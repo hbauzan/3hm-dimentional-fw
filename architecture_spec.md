@@ -32,7 +32,7 @@ Each **DomainHypercubeLock** carries its own cosine threshold. Allowlist polarit
 | Q2 | `X-Semantic-Domain: *` defaults to **AnyAllowlist**. **AllLocks** requires `X-SF-Wildcard-Mode: all`. |
 | Q3 | Mask bits are 0 ULP. Cosine parity uses the `1e-14` absolute bound. |
 | Q4 | NeMo Guardrails is out of scope. |
-| Q5 | Direct pins: `clap 4.5.23`, `half 2.4.1`, `tonic-build 0.12.3`, `prost-build 0.13.4`, `tower 0.5.2`, Arrow `=58.0.0`. |
+| Q5 | Direct pins: `clap 4.5.23`, `half 2.4.1`, `tower 0.5.2`. Arrow is `=58.4.1` because `datafusion 54` requires `arrow-schema ^58.3.0`. `lancedb 0.40.0` is built with feature `remote` because `Error::Http` is referenced outside its cfg. That feature pulls `tonic`/`prost` 0.14, so the workspace uses that line instead of 0.12.3/0.13.4. |
 | Q6 | Slice 2 is green when NEON matches scalar on this Apple M4. AVX-512 and AVX2 ship `cfg`-gated and are not executed here. |
 | Q7 | `manifest.json` follows the roadmap document: `vector_dim` and `alignment_bytes` live in `state_schema`. |
 | Q8 | The load process links LanceDB. RSS is measured in Slice 5. A result at or above 45 MB stops at the approval gate with the measured number. |

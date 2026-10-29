@@ -1,7 +1,7 @@
 //! `POST /v1/chat/completions` skeleton.
 
-use crate::cascade::evaluate_three_tier_cascade;
 use crate::embedder::BatchEmbedderClient;
+use crate::routing::{evaluate_route, RouteFailure, RouteInput};
 use crate::segmenter::segment_prompt_clauses;
 use crate::upstream::UpstreamLlmForwarder;
 use axum::extract::State;
@@ -83,12 +83,6 @@ pub async fn handle_v1_chat_completions(
         }
     };
 
-    let domain_id = headers
-        .get("x-semantic-domain")
-        .and_then(|value| value.to_str().ok())
-        .unwrap_or(state.default_domain.as_str())
-        .to_string();
-
     let l3_mode = match headers
         .get("x-ddi-mode")
         .and_then(|value| value.to_str().ok())
@@ -96,20 +90,6 @@ pub async fn handle_v1_chat_completions(
         Some("mode_a") => L3InspectionMode::ModeATopK,
         Some("mode_b") => L3InspectionMode::ModeBStrictHypercube,
         _ => L3InspectionMode::ModeCSpectralQuorum,
-    };
-
-    let Some(lock) = state.registry.get(&domain_id) else {
-        return (
-            StatusCode::FORBIDDEN,
-            Json(serde_json::json!({
-                "error": {
-                    "type": "ddi_ingress_breach",
-                    "code": "UNKNOWN_DOMAIN_LOCK",
-                    "message": format!("Fail-closed: domain '{domain_id}' not found in registry.")
-                }
-            })),
-        )
-            .into_response();
     };
 
     let clauses = segment_prompt_clauses(&user_prompt);
@@ -133,14 +113,16 @@ pub async fn handle_v1_chat_completions(
         }
     };
 
-    match evaluate_three_tier_cascade(
-        &vectors[0],
-        &vectors[1..],
-        &clauses,
-        &lock,
+    match evaluate_route(RouteInput {
+        registry: &state.registry,
+        headers: &headers,
+        default_domain: &state.default_domain,
+        full_prompt: &vectors[0],
+        clause_vecs: &vectors[1..],
+        clauses: &clauses,
         l3_mode,
-        state.max_telemetry_coords,
-    ) {
+        max_telemetry_coords: state.max_telemetry_coords,
+    }) {
         Ok(gate_latency_ns) => {
             match state
                 .upstream
@@ -167,7 +149,12 @@ pub async fn handle_v1_chat_completions(
                     .into_response(),
             }
         }
-        Err(envelope) => (StatusCode::FORBIDDEN, Json(*envelope)).into_response(),
+        Err(failure) => match *failure {
+            RouteFailure::Route(route_err) => forbidden(route_err.status_code, &route_err.message),
+            RouteFailure::Breach(envelope) => {
+                (StatusCode::FORBIDDEN, Json(*envelope)).into_response()
+            }
+        },
     }
 }
 

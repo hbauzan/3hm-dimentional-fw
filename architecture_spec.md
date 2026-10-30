@@ -47,6 +47,8 @@ Pre-dilated bounds (`lo - eps`, `hi + eps`) are computed when a lock is loaded, 
 
 `POST /api/v1/chat` gates the latest user message on one **DomainHypercubeLock** (the registry id, or the first loaded lock when `domain_id` is omitted). Tier 1 is centroid cosine, Tier 2 is **ClauseSegmenter** cosine, Tier 3 is Mode C **SpectralQuorum**. Comparisons follow lock polarity. Coordinates stay `f32`.
 
+The diagnostic binary does not call TEI. Python markers project onto the lock centroid inside the pre-dilated box and pass the cascade. Culinary markers project orthogonal to that centroid and breach Tier 1. A string that contains both stays in-domain at Tier 1, so the culinary clause can breach Tier 2. `PERMUTATION_NOISE` stays above the cosine floors and breaches Tier 3. Any other string keeps the SHA-256 projection.
+
 A pass returns the upstream body as `text/event-stream` and does not buffer the SSE payload. A breach returns HTTP 403 `application/json` and does not call the upstream model. `failing_tier` is `L1_CENTROID_COSINE`, `L2_CLAUSE_GATE`, or `L3_SPECTRAL_QUORUM`.
 
 Request overrides replace `l1_cosine_threshold`, `l2_clause_threshold`, `quorum_k`, and `epsilon` on a clone. An epsilon override rebuilds dilated bounds from the stored epsilon: raw bound = dilated bound ± stored epsilon, then dilate again with the request epsilon. The registry lock is left unchanged.

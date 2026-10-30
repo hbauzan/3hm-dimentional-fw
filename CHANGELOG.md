@@ -5,6 +5,7 @@
 - `POST /api/v1/chat` on `sf-ui`: three-tier gate, HTTP 403 breach telemetry, and unbuffered SSE to a per-request OpenAI-compatible upstream.
 - Embedded Chat Playground in `sf-ui`: Diagnostic Studio / Chat Playground tabs, SSE thread, live lock overrides, and the Rayos X breach card. API keys stay in `localStorage`.
 - `ReqwestChatForwarder::forward_dynamic` joins a request base URL and sends `Authorization: Bearer` without changing `/v1/chat/completions`.
+- Calibrated chat embedder for the standalone studio: Python prompts pass into upstream SSE, culinary prompts breach at L1, piggybacked clauses breach at L2, and `PERMUTATION_NOISE` breaches the L3 spectral quorum. The Chat Playground loads those four prompts from preset chips.
 
 ## 0.1.0
 

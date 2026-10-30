@@ -2,25 +2,51 @@
 /target/
 **/*.rs.bk
 *.orig
+*.profraw
+*.profdata
 
-# IDE & OS files
+# AI agent skills & local editor configurations
+.agents/
+.claude/
+.cursor/
+.gemini/
+.windsurf/
+.opencode/
+
+# IDE & Editor files
 .DS_Store
+.DS_Store?
+._*
 .idea/
 .vscode/
 *.swp
 *.swo
+*~
+*.sublime-project
+*.sublime-workspace
 
 # Environment & local secrets
 .env
-.env.local
+.env.*
+!.env.example
 *.pem
 *.key
+*.cert
+*.pfx
+*.p12
+
+# Logs & scratch output
+*.log
+out/
+tmp/
+temp/
+*.tmp
 
 # Test & telemetry dumps
 reports/*.json
 !reports/.gitkeep
-out/
 
-# LanceDB local datasets and bench scratch
+# LanceDB local datasets and benchmark working sets
 data/
 *.lance/
+*.lancedb/

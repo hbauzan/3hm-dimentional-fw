@@ -433,6 +433,258 @@
     .status-ACTIVE_BREACH { background: #7f1d1d; color: #f87171; }
     .status-PRUNED_UNIVERSAL { background: #334155; color: #94a3b8; }
     .status-PRUNED_SNR { background: #475569; color: #cbd5e1; }
+
+    .studio-tabs {
+      display: flex;
+      gap: 8px;
+    }
+
+    .studio-tabs button {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      color: var(--text-muted);
+    }
+
+    .studio-tabs button.active {
+      border-color: var(--border-bright);
+      color: var(--border-bright);
+      background: var(--bg-primary);
+    }
+
+    .diagnostic-toolbar {
+      background: var(--bg-secondary);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      padding: 12px 18px;
+      margin-bottom: 16px;
+    }
+
+    .chat-layout {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 320px;
+      gap: 16px;
+      align-items: stretch;
+    }
+
+    @media (max-width: 1180px) {
+      .chat-layout {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .chat-thread,
+    .chat-drawer {
+      min-height: 420px;
+      max-height: calc(100vh - 140px);
+    }
+
+    .chat-drawer {
+      overflow-y: auto;
+    }
+
+    #chatMessages {
+      flex: 1;
+      min-height: 0;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      padding-right: 4px;
+    }
+
+    .bubble {
+      max-width: min(100%, 640px);
+      padding: 8px 10px;
+      border-radius: 8px;
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
+    }
+
+    .bubble-user {
+      align-self: flex-end;
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+    }
+
+    .bubble-assistant {
+      align-self: flex-start;
+      background: var(--bg-primary);
+      border: 1px solid var(--border-color);
+    }
+
+    .bubble-assistant pre {
+      margin-top: 8px;
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: 4px;
+      padding: 8px;
+      overflow-x: auto;
+    }
+
+    .bubble-assistant code {
+      font-family: inherit;
+    }
+
+    .bubble-error {
+      align-self: stretch;
+      border: 1px solid var(--color-warning);
+      color: var(--color-warning);
+      background: var(--bg-card);
+    }
+
+    #chatInputForm {
+      display: flex;
+      gap: 8px;
+      align-items: flex-end;
+    }
+
+    #chatPromptInput {
+      flex: 1;
+      min-height: 64px;
+      max-height: 200px;
+      resize: vertical;
+      background: var(--bg-primary);
+      color: var(--text-main);
+      border: 1px solid var(--border-color);
+    }
+
+    #chatPromptInput::placeholder {
+      color: var(--text-muted);
+    }
+
+    #btnSendChat:disabled {
+      cursor: wait;
+      opacity: 0.55;
+    }
+
+    .stream-pulse {
+      color: var(--border-bright);
+      font-size: 11px;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      animation: streamPulse 1s ease-in-out infinite;
+    }
+
+    @keyframes streamPulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.3; }
+    }
+
+    .tune-block {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .tune-row {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .tune-row output {
+      color: var(--text-main);
+      font-variant-numeric: tabular-nums;
+    }
+
+    input[type="range"] {
+      padding: 0;
+      accent-color: var(--border-bright);
+      width: 100%;
+      background: transparent;
+    }
+
+    .chat-drawer input[type="text"],
+    .chat-drawer input[type="password"],
+    .chat-drawer select {
+      width: 100%;
+    }
+
+    .rayos-card {
+      align-self: flex-start;
+      width: min(100%, 640px);
+      background: var(--bg-card);
+      border: 1px solid var(--color-breach);
+      border-radius: 8px;
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .rayos-tag {
+      color: var(--color-breach);
+      font-weight: 700;
+      letter-spacing: 0.04em;
+    }
+
+    .rayos-banner {
+      background: #450a0a;
+      color: var(--color-breach);
+      border-radius: 4px;
+      padding: 6px 8px;
+      font-weight: 700;
+    }
+
+    .rayos-tier {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      border-top: 1px solid var(--border-color);
+      padding-top: 8px;
+    }
+
+    .rayos-tier h3 {
+      font-size: 11px;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: #93c5fd;
+    }
+
+    .rayos-skipped {
+      color: var(--text-muted);
+    }
+
+    .clause-hit {
+      color: var(--color-breach);
+      font-weight: 700;
+      border-left: 3px solid var(--color-breach);
+      padding-left: 8px;
+    }
+
+    .meter {
+      position: relative;
+      height: 8px;
+      background: var(--bg-primary);
+      border: 1px solid var(--border-color);
+      border-radius: 4px;
+    }
+
+    .meter-fill {
+      height: 100%;
+      border-radius: 4px;
+    }
+
+    .meter-fill.pass { background: var(--color-pass); }
+    .meter-fill.breach { background: var(--color-breach); }
+
+    .meter-mark {
+      position: absolute;
+      top: -2px;
+      bottom: -2px;
+      width: 2px;
+      background: var(--color-warning);
+    }
+
+    .pill-pass {
+      color: var(--color-pass);
+      border: 1px solid var(--color-pass);
+    }
+
+    .pill-breach {
+      color: var(--color-breach);
+      border: 1px solid var(--color-breach);
+    }
   </style>
 </head>
 <body>
@@ -444,43 +696,49 @@
       <span class="badge" style="background:#047857" id="statusBadge">READY</span>
     </div>
 
-    <div class="controls-grid">
-      <div>
-        <label for="inputModeSelect">Input Mode</label><br />
-        <select id="inputModeSelect">
-          <option value="catalog">Rompepepe 220 Catalog</option>
-          <option value="custom">Custom Prompt / Piggybacking Lab</option>
-        </select>
-      </div>
-
-      <div id="catalogSelectorGroup">
-        <label for="vectorIndexSelect">Catalog Vector</label><br />
-        <select id="vectorIndexSelect" style="max-width: 260px;"></select>
-      </div>
-
-      <div>
-        <label for="targetLockSelect">Target Lock</label><br />
-        <select id="targetLockSelect" style="max-width: 200px;">
-          <option value="*">* (Wildcard AnyAllowlist)</option>
-          <option value="*all">* (Wildcard AllLocks)</option>
-        </select>
-      </div>
-
-      <div>
-        <label for="l3StrategySelect">Head 3 Strategy</label><br />
-        <select id="l3StrategySelect">
-          <option value="mode_c" selected>Mode C: Spectral Quorum (K=103)</option>
-          <option value="mode_a">Mode A: Top-K</option>
-          <option value="mode_b">Mode B: Strict Box (1024D)</option>
-        </select>
-      </div>
-
-      <div style="align-self: flex-end;">
-        <button id="inspectBtn">Run Inspection</button>
-        <button id="reloadBtn" class="secondary" title="Reload locks from backing LanceDB">Reload</button>
-      </div>
-    </div>
+    <nav class="studio-tabs" aria-label="Studio">
+      <button type="button" id="tabDiagnostic" class="active" aria-controls="viewDiagnostic" aria-selected="true">Diagnostic Studio</button>
+      <button type="button" id="tabChat" aria-controls="viewChat" aria-selected="false">Chat Playground</button>
+    </nav>
   </header>
+
+  <div id="viewDiagnostic">
+  <div class="controls-grid diagnostic-toolbar">
+    <div>
+      <label for="inputModeSelect">Input Mode</label><br />
+      <select id="inputModeSelect">
+        <option value="catalog">Rompepepe 220 Catalog</option>
+        <option value="custom">Custom Prompt / Piggybacking Lab</option>
+      </select>
+    </div>
+
+    <div id="catalogSelectorGroup">
+      <label for="vectorIndexSelect">Catalog Vector</label><br />
+      <select id="vectorIndexSelect" style="max-width: 260px;"></select>
+    </div>
+
+    <div>
+      <label for="targetLockSelect">Target Lock</label><br />
+      <select id="targetLockSelect" style="max-width: 200px;">
+        <option value="*">* (Wildcard AnyAllowlist)</option>
+        <option value="*all">* (Wildcard AllLocks)</option>
+      </select>
+    </div>
+
+    <div>
+      <label for="l3StrategySelect">Head 3 Strategy</label><br />
+      <select id="l3StrategySelect">
+        <option value="mode_c" selected>Mode C: Spectral Quorum (K=103)</option>
+        <option value="mode_a">Mode A: Top-K</option>
+        <option value="mode_b">Mode B: Strict Box (1024D)</option>
+      </select>
+    </div>
+
+    <div style="align-self: flex-end;">
+      <button id="inspectBtn">Run Inspection</button>
+      <button id="reloadBtn" class="secondary" title="Reload locks from backing LanceDB">Reload</button>
+    </div>
+  </div>
 
   <div class="layout-grid">
     <!-- PANEL 1: Input & Head 2 (L2) Clause Segmenter -->
@@ -633,6 +891,74 @@
       </div>
     </div>
   </div>
+  </div>
+
+  <div id="viewChat" class="chat-layout" style="display: none;">
+    <section class="panel chat-thread">
+      <div class="panel-header">
+        <span class="panel-title">Chat Playground</span>
+        <span class="stream-pulse" id="chatStreamPulse" hidden>Streaming</span>
+      </div>
+      <div id="chatMessages"></div>
+      <form id="chatInputForm">
+        <textarea id="chatPromptInput" placeholder="Prompt. Enter sends, Shift+Enter inserts a line."></textarea>
+        <button type="submit" id="btnSendChat">Send</button>
+      </form>
+    </section>
+
+    <aside class="panel chat-drawer">
+      <div class="panel-header">
+        <span class="panel-title">Live Tuning</span>
+      </div>
+
+      <div class="tune-block">
+        <label for="chatDomainSelect">Domain Lock</label>
+        <select id="chatDomainSelect"></select>
+      </div>
+
+      <div class="tune-block">
+        <label>
+          <input type="checkbox" id="chkEnableOverrides" />
+          Enable overrides
+        </label>
+        <label class="tune-row" for="sliderL1">
+          <span>L1 Cosine Threshold <output id="valL1" for="sliderL1">0.50</output></span>
+        </label>
+        <input id="sliderL1" type="range" min="0" max="1" step="0.01" value="0.50" />
+        <label class="tune-row" for="sliderL2">
+          <span>L2 Clause Threshold <output id="valL2" for="sliderL2">0.50</output></span>
+        </label>
+        <input id="sliderL2" type="range" min="0" max="1" step="0.01" value="0.50" />
+        <label class="tune-row" for="sliderQuorum">
+          <span>Quorum K <output id="valQuorum" for="sliderQuorum">103</output></span>
+        </label>
+        <input id="sliderQuorum" type="range" min="1" max="1015" step="1" value="103" />
+        <label class="tune-row" for="sliderEpsilon">
+          <span>Epsilon <output id="valEpsilon" for="sliderEpsilon">0.000</output></span>
+        </label>
+        <input id="sliderEpsilon" type="range" min="0" max="0.5" step="0.005" value="0" />
+      </div>
+
+      <div class="panel-header">
+        <span class="panel-title">Upstream Bridge</span>
+      </div>
+      <div class="tune-block">
+        <label for="selectProvider">Provider</label>
+        <select id="selectProvider">
+          <option value="mock" selected>mock</option>
+          <option value="deepseek">deepseek</option>
+          <option value="openai">openai</option>
+          <option value="gemini">gemini</option>
+        </select>
+        <label for="inputBaseUrl">Base URL</label>
+        <input id="inputBaseUrl" type="text" value="" spellcheck="false" autocomplete="off" />
+        <label for="inputModel">Model</label>
+        <input id="inputModel" type="text" value="mock" spellcheck="false" autocomplete="off" />
+        <label for="inputApiKey">API Key</label>
+        <input id="inputApiKey" type="password" value="" autocomplete="off" spellcheck="false" />
+      </div>
+    </aside>
+  </div>
 
   <script>
     const CANVAS_SIZE = 416;
@@ -661,6 +987,7 @@
           opt.textContent = `${lock.domain_id} (K=${lock.quorum_k}, active=${lock.active_dims})`;
           lockSelect.appendChild(opt);
         });
+        bindChatDomains();
 
         // Populate Rompepepe Vectors
         const vecSelect = document.getElementById('vectorIndexSelect');
@@ -957,9 +1284,409 @@
 
     document.addEventListener('keydown', (e) => {
       if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+        if (e.target && e.target.id === 'chatPromptInput') return;
         runInspection();
       }
     });
+
+    const PROVIDER_DEFAULTS = {
+      mock: { baseUrl: '', model: 'mock' },
+      deepseek: { baseUrl: 'https://api.deepseek.com/v1', model: 'deepseek-chat' },
+      openai: { baseUrl: 'https://api.openai.com/v1', model: 'gpt-4o-mini' },
+      gemini: {
+        baseUrl: 'https://generativelanguage.googleapis.com/v1beta/openai',
+        model: 'gemini-2.0-flash',
+      },
+    };
+
+    const chatMessages = document.getElementById('chatMessages');
+    const chatInputForm = document.getElementById('chatInputForm');
+    const chatPromptInput = document.getElementById('chatPromptInput');
+    const btnSendChat = document.getElementById('btnSendChat');
+    const chatDomainSelect = document.getElementById('chatDomainSelect');
+    const chkEnableOverrides = document.getElementById('chkEnableOverrides');
+    const sliderL1 = document.getElementById('sliderL1');
+    const sliderL2 = document.getElementById('sliderL2');
+    const sliderQuorum = document.getElementById('sliderQuorum');
+    const sliderEpsilon = document.getElementById('sliderEpsilon');
+    const valL1 = document.getElementById('valL1');
+    const valL2 = document.getElementById('valL2');
+    const valQuorum = document.getElementById('valQuorum');
+    const valEpsilon = document.getElementById('valEpsilon');
+    const selectProvider = document.getElementById('selectProvider');
+    const inputBaseUrl = document.getElementById('inputBaseUrl');
+    const inputModel = document.getElementById('inputModel');
+    const inputApiKey = document.getElementById('inputApiKey');
+    const chatStreamPulse = document.getElementById('chatStreamPulse');
+
+    const chatHistory = [];
+    let chatStreaming = false;
+
+    function activateStudio(view) {
+      const diagnostic = view === 'diagnostic';
+      document.getElementById('viewDiagnostic').style.display = diagnostic ? 'block' : 'none';
+      document.getElementById('viewChat').style.display = diagnostic ? 'none' : 'grid';
+      document.getElementById('tabDiagnostic').classList.toggle('active', diagnostic);
+      document.getElementById('tabChat').classList.toggle('active', !diagnostic);
+      document.getElementById('tabDiagnostic').setAttribute('aria-selected', String(diagnostic));
+      document.getElementById('tabChat').setAttribute('aria-selected', String(!diagnostic));
+    }
+
+    function syncReadouts() {
+      valL1.textContent = Number(sliderL1.value).toFixed(2);
+      valL2.textContent = Number(sliderL2.value).toFixed(2);
+      valQuorum.textContent = String(Number.parseInt(sliderQuorum.value, 10));
+      valEpsilon.textContent = Number(sliderEpsilon.value).toFixed(3);
+    }
+
+    function clamp(value, lo, hi) {
+      return Math.min(hi, Math.max(lo, value));
+    }
+
+    function applyLockCalibration(lock) {
+      sliderL1.value = clamp(Number(lock.l1_threshold), 0, 1).toFixed(2);
+      sliderL2.value = clamp(Number(lock.l2_threshold), 0, 1).toFixed(2);
+      sliderQuorum.value = String(clamp(Number(lock.quorum_k), 1, 1015));
+      sliderEpsilon.value = clamp(Number(lock.epsilon), 0, 0.5).toFixed(3);
+      syncReadouts();
+    }
+
+    function bindChatDomains() {
+      if (chatDomainSelect.options.length > 0) return;
+      catalogData.locks.forEach(lock => {
+        const opt = document.createElement('option');
+        opt.value = lock.domain_id;
+        opt.textContent = lock.domain_id;
+        chatDomainSelect.appendChild(opt);
+      });
+      if (catalogData.locks.length > 0) {
+        chatDomainSelect.value = catalogData.locks[0].domain_id;
+        applyLockCalibration(catalogData.locks[0]);
+      }
+    }
+
+    function storageKeyFor(provider) {
+      return 'sf_chat_key_' + provider;
+    }
+
+    function readStoredKey(provider) {
+      try {
+        return localStorage.getItem(storageKeyFor(provider)) || '';
+      } catch (_err) {
+        return '';
+      }
+    }
+
+    function writeStoredKey(provider, value) {
+      try {
+        const key = storageKeyFor(provider);
+        if (value) localStorage.setItem(key, value);
+        else localStorage.removeItem(key);
+      } catch (_err) {
+        /* private mode: the field still rides on the POST body */
+      }
+    }
+
+    function applyProviderDefaults() {
+      const defaults = PROVIDER_DEFAULTS[selectProvider.value] || PROVIDER_DEFAULTS.mock;
+      inputBaseUrl.value = defaults.baseUrl;
+      inputModel.value = defaults.model;
+      inputApiKey.value = readStoredKey(selectProvider.value);
+    }
+
+    function resizePrompt() {
+      chatPromptInput.style.height = 'auto';
+      chatPromptInput.style.height = `${Math.min(chatPromptInput.scrollHeight, 200)}px`;
+    }
+
+    function setStreaming(active) {
+      chatStreaming = active;
+      btnSendChat.disabled = active;
+      chatStreamPulse.hidden = !active;
+    }
+
+    function scrollThread() {
+      chatMessages.scrollTop = chatMessages.scrollHeight;
+    }
+
+    function appendBubble(className, text) {
+      const bubble = document.createElement('div');
+      bubble.className = className;
+      if (text != null) bubble.textContent = text;
+      chatMessages.appendChild(bubble);
+      scrollThread();
+      return bubble;
+    }
+
+    function formatGate(score, threshold) {
+      const op = score < threshold ? '<' : score > threshold ? '>' : '=';
+      return `${Number(score).toFixed(4)} ${op} Threshold: ${Number(threshold).toFixed(4)}`;
+    }
+
+    function statusPill(passed) {
+      const pill = document.createElement('span');
+      pill.className = passed ? 'status-pill pill-pass' : 'status-pill pill-breach';
+      pill.textContent = passed ? '[PASS]' : '[BREACH]';
+      return pill;
+    }
+
+    function renderTier1(l1) {
+      const section = document.createElement('section');
+      section.className = 'rayos-tier';
+      const title = document.createElement('h3');
+      title.textContent = 'Tier 1 — Centroid Cosine';
+      section.appendChild(title);
+      const cosine = Number(l1.cosine);
+      const threshold = Number(l1.threshold);
+      const line = document.createElement('div');
+      line.textContent = `Cosine: ${formatGate(cosine, threshold)}`;
+      section.appendChild(line);
+      section.appendChild(statusPill(l1.passed === true));
+      const meter = document.createElement('div');
+      meter.className = 'meter';
+      meter.setAttribute('role', 'img');
+      meter.setAttribute('aria-label', 'centroid cosine proximity');
+      const fill = document.createElement('div');
+      fill.className = 'meter-fill ' + (l1.passed === true ? 'pass' : 'breach');
+      fill.style.width = `${clamp(cosine, 0, 1) * 100}%`;
+      const mark = document.createElement('div');
+      mark.className = 'meter-mark';
+      mark.style.left = `${clamp(threshold, 0, 1) * 100}%`;
+      meter.appendChild(fill);
+      meter.appendChild(mark);
+      section.appendChild(meter);
+      return section;
+    }
+
+    function renderTier2(dto) {
+      const section = document.createElement('section');
+      section.className = 'rayos-tier';
+      const title = document.createElement('h3');
+      title.textContent = 'Tier 2 — Clause Gate';
+      section.appendChild(title);
+      const l2 = dto.l2 || {};
+      if (dto.failing_tier === 'L1_CENTROID_COSINE') {
+        const skipped = document.createElement('div');
+        skipped.className = 'rayos-skipped';
+        skipped.textContent = 'Skipped (cascaded at L1).';
+        section.appendChild(skipped);
+        return section;
+      }
+      if (l2.passed === false) {
+        section.appendChild(statusPill(false));
+        const hit = document.createElement('div');
+        hit.className = 'clause-hit';
+        const cosine = Number(l2.clause_cosine);
+        const threshold = Number(l2.threshold);
+        hit.textContent = `#${l2.breached_clause_index} ${l2.breached_clause_text || ''} — Cosine: ${formatGate(cosine, threshold)}`;
+        section.appendChild(hit);
+        return section;
+      }
+      section.appendChild(statusPill(true));
+      const ok = document.createElement('div');
+      ok.textContent = `Threshold: ${Number(l2.threshold).toFixed(4)}`;
+      section.appendChild(ok);
+      return section;
+    }
+
+    function renderTier3(l3) {
+      const section = document.createElement('section');
+      section.className = 'rayos-tier';
+      const title = document.createElement('h3');
+      title.textContent = 'Tier 3 — Spectral Quorum';
+      section.appendChild(title);
+      const line = document.createElement('div');
+      if (l3.evaluated) {
+        line.textContent = `Affirmative In-Box Votes: ${l3.affirmative_votes} / Required: ${l3.required_votes}`;
+        section.appendChild(line);
+        if (typeof l3.passed === 'boolean') section.appendChild(statusPill(l3.passed));
+      } else {
+        line.className = 'rayos-skipped';
+        line.textContent = 'Skipped';
+        section.appendChild(line);
+      }
+      return section;
+    }
+
+    function renderBreachCard(dto) {
+      const card = document.createElement('article');
+      card.className = 'rayos-card';
+      const tag = document.createElement('div');
+      tag.className = 'rayos-tag';
+      tag.textContent = '[SEMANTIC CONTAINMENT BREACH]';
+      const banner = document.createElement('div');
+      banner.className = 'rayos-banner';
+      banner.textContent = dto.failing_tier || '';
+      card.appendChild(tag);
+      card.appendChild(banner);
+      card.appendChild(renderTier1(dto.l1 || {}));
+      card.appendChild(renderTier2(dto));
+      card.appendChild(renderTier3(dto.l3 || {}));
+      chatMessages.appendChild(card);
+      scrollThread();
+    }
+
+    function renderMarkdown(container, source) {
+      container.replaceChildren();
+      const chunks = String(source).split('```');
+      chunks.forEach((chunk, index) => {
+        if (index % 2 === 1) {
+          let code = chunk.replace(/^\r?\n/, '');
+          const firstBreak = code.indexOf('\n');
+          if (firstBreak !== -1) {
+            const lang = code.slice(0, firstBreak).trim();
+            if (/^[A-Za-z0-9_+.-]*$/.test(lang)) code = code.slice(firstBreak + 1);
+          }
+          const pre = document.createElement('pre');
+          const codeEl = document.createElement('code');
+          codeEl.textContent = code.replace(/\n$/, '');
+          pre.appendChild(codeEl);
+          container.appendChild(pre);
+        } else if (chunk) {
+          const paragraph = document.createElement('p');
+          paragraph.style.whiteSpace = 'pre-wrap';
+          paragraph.textContent = chunk;
+          container.appendChild(paragraph);
+        }
+      });
+    }
+
+    function deltaFromSseLine(line) {
+      const trimmed = line.trim();
+      if (!trimmed.startsWith('data:')) return '';
+      const data = trimmed.slice(5).trim();
+      if (!data || data === '[DONE]') return '';
+      try {
+        const chunk = JSON.parse(data);
+        const choice = chunk && chunk.choices && chunk.choices[0];
+        const content = choice && choice.delta ? choice.delta.content : undefined;
+        if (typeof content === 'string') return content;
+        if (chunk && chunk.choices) return '';
+        return data;
+      } catch (_err) {
+        return data;
+      }
+    }
+
+    function appendChars(textNode, piece) {
+      for (const ch of piece) textNode.appendData(ch);
+      scrollThread();
+    }
+
+    async function consumeSse(response, textNode) {
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+      let raw = '';
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split(/\r?\n/);
+        buffer = lines.pop() ?? '';
+        for (const line of lines) {
+          const piece = deltaFromSseLine(line);
+          if (!piece) continue;
+          appendChars(textNode, piece);
+          raw += piece;
+        }
+      }
+      buffer += decoder.decode();
+      if (buffer.trim()) {
+        const piece = deltaFromSseLine(buffer);
+        if (piece) {
+          appendChars(textNode, piece);
+          raw += piece;
+        }
+      }
+      return raw;
+    }
+
+    async function sendChat(event) {
+      event.preventDefault();
+      const prompt = chatPromptInput.value.trim();
+      if (!prompt || chatStreaming) return;
+
+      chatHistory.push({ role: 'user', content: prompt });
+      appendBubble('bubble bubble-user', prompt);
+      chatPromptInput.value = '';
+      resizePrompt();
+
+      const assistant = appendBubble('bubble bubble-assistant', null);
+      const textNode = document.createTextNode('');
+      assistant.appendChild(textNode);
+
+      const payload = {
+        messages: chatHistory.map(message => ({ role: message.role, content: message.content })),
+        upstream: {
+          provider: selectProvider.value,
+          model: inputModel.value.trim(),
+          base_url: inputBaseUrl.value.trim(),
+          api_key: inputApiKey.value,
+        },
+      };
+      if (chatDomainSelect.value) payload.domain_id = chatDomainSelect.value;
+      if (chkEnableOverrides.checked) {
+        payload.overrides = {
+          l1_threshold: Number(sliderL1.value),
+          l2_threshold: Number(sliderL2.value),
+          quorum_k: Number.parseInt(sliderQuorum.value, 10),
+          epsilon: Number(sliderEpsilon.value),
+        };
+      }
+
+      setStreaming(true);
+      try {
+        const res = await fetch('/api/v1/chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+        if (res.status === 403) {
+          assistant.remove();
+          const breach = await res.json();
+          renderBreachCard(breach);
+          return;
+        }
+        if (res.status === 200) {
+          const raw = await consumeSse(res, textNode);
+          chatHistory.push({ role: 'assistant', content: raw });
+          renderMarkdown(assistant, raw);
+          scrollThread();
+          return;
+        }
+        assistant.remove();
+        const detail = await res.text();
+        appendBubble('bubble bubble-error', `HTTP ${res.status} ${detail}`.trim());
+      } catch (err) {
+        assistant.remove();
+        appendBubble('bubble bubble-error', String(err));
+      } finally {
+        setStreaming(false);
+      }
+    }
+
+    document.getElementById('tabDiagnostic').addEventListener('click', () => activateStudio('diagnostic'));
+    document.getElementById('tabChat').addEventListener('click', () => activateStudio('chat'));
+    [sliderL1, sliderL2, sliderQuorum, sliderEpsilon].forEach(slider => {
+      slider.addEventListener('input', syncReadouts);
+    });
+    chatDomainSelect.addEventListener('change', () => {
+      const lock = catalogData.locks.find(item => item.domain_id === chatDomainSelect.value);
+      if (lock) applyLockCalibration(lock);
+    });
+    selectProvider.addEventListener('change', applyProviderDefaults);
+    inputApiKey.addEventListener('input', () => writeStoredKey(selectProvider.value, inputApiKey.value));
+    chatPromptInput.addEventListener('input', resizePrompt);
+    chatPromptInput.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter' && !event.shiftKey) {
+        event.preventDefault();
+        if (!chatStreaming) chatInputForm.requestSubmit();
+      }
+    });
+    chatInputForm.addEventListener('submit', sendChat);
+    applyProviderDefaults();
+    syncReadouts();
 
     initCatalog();
   </script>

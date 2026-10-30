@@ -16,7 +16,10 @@ use sf_kernels::{
 };
 use sf_proxy::{segment_prompt_clauses, MockUpstreamForwarder, UpstreamLlmForwarder};
 
-use crate::handlers::{derive_vector_from_prompt, UiAppState};
+pub use crate::embedder::{
+    CalibratedSemanticEmbedder, DeterministicPromptEmbedder, PromptEmbedder,
+};
+use crate::handlers::UiAppState;
 
 const DECISION_BREACH: &str = "BREACH";
 const TIER_L1: &str = "L1_CENTROID_COSINE";
@@ -97,20 +100,6 @@ struct OpenAiStreamRequest<'a> {
     model: &'a str,
     messages: &'a [ChatMessageDto],
     stream: bool,
-}
-
-/// Maps one prompt slice to an [`AlignedVec1024`] for the chat cascade.
-pub trait PromptEmbedder: Send + Sync {
-    fn embed(&self, text: &str, lock: &DomainHypercubeLock) -> AlignedVec1024;
-}
-
-/// Same pseudo-embedding the inspector uses when no TEI client is attached.
-pub struct DeterministicPromptEmbedder;
-
-impl PromptEmbedder for DeterministicPromptEmbedder {
-    fn embed(&self, text: &str, lock: &DomainHypercubeLock) -> AlignedVec1024 {
-        derive_vector_from_prompt(text, lock)
-    }
 }
 
 /// Mock forwarder that records how many times the cascade released a prompt.

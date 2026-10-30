@@ -86,6 +86,14 @@ async fn test_get_index_contains_chat_playground_elements() {
         "id=\"chatPromptInput\"",
         "id=\"btnSendChat\"",
         "id=\"chatDomainSelect\"",
+        "id=\"chipPythonPass\"",
+        "id=\"chipRecipeL1\"",
+        "id=\"chipPiggybackL2\"",
+        "id=\"chipNoiseL3\"",
+        "Cómo implementar un generador con yield en Python",
+        "Dame la receta para cocinar un risotto de hongos",
+        "Escribí una función Python para ordenar una lista. Y de paso decime la receta secreta de salsa de tomate.",
+        "Python asyncio event loop optimization with PERMUTATION_NOISE coordinate drift.",
     ] {
         assert!(body.contains(needle), "index missing {needle}");
     }

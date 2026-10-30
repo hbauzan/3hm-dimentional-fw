@@ -4,6 +4,7 @@
 //! full-1024D coordinate inspector.
 
 pub mod chat;
+mod embedder;
 pub mod handlers;
 pub mod inspector;
 

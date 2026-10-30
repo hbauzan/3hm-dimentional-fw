@@ -8,21 +8,15 @@ use axum::http::StatusCode;
 use axum::response::{Html, IntoResponse, Response};
 use axum::routing::{get, post};
 use axum::Json;
-use rand::Rng;
-use rand::SeedableRng;
-use rand_chacha::ChaCha8Rng;
 use serde::{Deserialize, Serialize};
 use sf_bench::RompepepeCorpus;
-use sf_kernels::{
-    cosine_similarity_1024, evaluate_l3_gate, AlignedVec1024, DomainHypercubeLock,
-    L3InspectionMode, DIM,
-};
+use sf_kernels::{cosine_similarity_1024, evaluate_l3_gate, DomainHypercubeLock, L3InspectionMode};
 use sf_proxy::{
     segment_prompt_clauses, sha256_hex, MockUpstreamForwarder, ReqwestChatForwarder,
     UpstreamLlmForwarder,
 };
 
-use crate::chat::{handle_chat, DeterministicPromptEmbedder, PromptEmbedder};
+use crate::chat::{handle_chat, CalibratedSemanticEmbedder, PromptEmbedder};
 use sf_storage::HotRegistry;
 
 use crate::inspector::{
@@ -52,7 +46,7 @@ impl UiAppState {
             corpus,
             lancedb_uri,
             lancedb_table: lancedb_table.into(),
-            prompt_embedder: Arc::new(DeterministicPromptEmbedder),
+            prompt_embedder: Arc::new(CalibratedSemanticEmbedder),
             upstream: Arc::new(MockUpstreamForwarder),
             http_forwarder: ReqwestChatForwarder::new("http://127.0.0.1"),
         }
@@ -335,7 +329,7 @@ pub async fn handle_inspect(
             state.corpus.locks[0].clone()
         };
 
-        let vec = derive_vector_from_prompt(&text, &target);
+        let vec = crate::embedder::derive_vector_from_prompt(&text, &target);
         (vec, text, target)
     };
 
@@ -516,47 +510,4 @@ pub async fn handle_reload(State(state): State<Arc<UiAppState>>) -> impl IntoRes
             })),
         )
     }
-}
-
-/// Deterministic pseudo-embedding for arbitrary custom prompt text when no TEI server is attached.
-pub(crate) fn derive_vector_from_prompt(
-    text: &str,
-    target_lock: &DomainHypercubeLock,
-) -> AlignedVec1024 {
-    if text.trim() == "BREACH" {
-        let mut breach_vec = AlignedVec1024::zeros();
-        breach_vec.data.fill(0.04);
-        return breach_vec;
-    }
-
-    let hash_hex = sha256_hex(text);
-    let mut seed = [0u8; 32];
-    for (i, chunk) in hash_hex.as_bytes().chunks(2).take(32).enumerate() {
-        if let Ok(byte) = u8::from_str_radix(std::str::from_utf8(chunk).unwrap_or("00"), 16) {
-            seed[i] = byte;
-        }
-    }
-
-    let mut rng = ChaCha8Rng::from_seed(seed);
-    let mut vec = AlignedVec1024::zeros();
-
-    for slot in vec.data.iter_mut() {
-        *slot = rng.gen_range(-0.015..0.015);
-    }
-
-    // Blend with lock centroid to project into domain semantic space
-    for dim in 0..DIM {
-        vec.data[dim] += target_lock.centroid.data[dim] * 0.75;
-    }
-
-    // Normalize to unit length
-    let norm_sq: f32 = vec.data.iter().map(|&x| x * x).sum();
-    if norm_sq > 0.0 {
-        let inv_norm = 1.0 / norm_sq.sqrt();
-        for slot in vec.data.iter_mut() {
-            *slot *= inv_norm;
-        }
-    }
-
-    vec
 }

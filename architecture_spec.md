@@ -41,4 +41,14 @@ Each **DomainHypercubeLock** carries its own cosine threshold. Allowlist polarit
 
 Ingress reads `POST /v1/chat/completions`, segments clauses, embeds one batch of shape `[1 + M, 1024]`, then runs L1, L2, L3. A pass streams the upstream body unchanged and sets `X-SF-Decision: PASS`. A breach returns HTTP 403 `SEMANTIC_CONTAINMENT_BREACH` and does not call the upstream model.
 
-Pre-dilated bounds (`lo - eps`, `hi + eps`) are computed when a lock is loaded, not per request.
+Pre-dilated bounds (`lo - eps`, `hi + eps`) are computed when a lock is loaded, not per request on this path.
+
+## Playground chat (`sf-ui`)
+
+`POST /api/v1/chat` gates the latest user message on one **DomainHypercubeLock** (the registry id, or the first loaded lock when `domain_id` is omitted). Tier 1 is centroid cosine, Tier 2 is **ClauseSegmenter** cosine, Tier 3 is Mode C **SpectralQuorum**. Comparisons follow lock polarity. Coordinates stay `f32`.
+
+A pass returns the upstream body as `text/event-stream` and does not buffer the SSE payload. A breach returns HTTP 403 `application/json` and does not call the upstream model. `failing_tier` is `L1_CENTROID_COSINE`, `L2_CLAUSE_GATE`, or `L3_SPECTRAL_QUORUM`.
+
+Request overrides replace `l1_cosine_threshold`, `l2_clause_threshold`, `quorum_k`, and `epsilon` on a clone. An epsilon override rebuilds dilated bounds from the stored epsilon: raw bound = dilated bound ± stored epsilon, then dilate again with the request epsilon. The registry lock is left unchanged.
+
+The upstream body is OpenAI chat-completions JSON (`model`, `messages`, `stream: true`). A per-request base that already ends in `/v1` or `/openai` joins `/chat/completions`. Any other host joins `/v1/chat/completions`. `api_key` is sent as `Authorization: Bearer` and is omitted from the JSON body. `/v1/chat/completions` on `sf-proxy` keeps its process-wide base (`{base}/v1/chat/completions`) and its breach envelope (`L1_CATEGORICAL_COSINE`, `L2_SLIDING_WINDOW`, `L3_DDI_INSPECTOR`).

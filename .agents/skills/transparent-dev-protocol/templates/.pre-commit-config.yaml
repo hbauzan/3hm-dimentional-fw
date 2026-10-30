@@ -1,0 +1,76 @@
+# =============================================================================
+# TRANSPARENT DEV PROTOCOL — pre-commit base template (Stack-Agnostic)
+# -----------------------------------------------------------------------------
+# Usage in a new app:
+#   1. Copy this file to the workspace ROOT as `.pre-commit-config.yaml`.
+#   2. Install the git hook once:   pre-commit install
+#   3. Smoke-test the whole repo:   pre-commit run --all-files
+#
+# Pin the `rev:` tags to current releases when you adopt this in a repo.
+# Adapt linters and formatters below to match the project's canonical toolchain.
+# =============================================================================
+
+repos:
+  # --- General hygiene & safety (Stack-Agnostic) ------------------------------
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-merge-conflict
+      - id: check-added-large-files
+        args: ["--maxkb=1024"]
+      - id: check-yaml
+      - id: check-toml
+      - id: detect-private-key        # blocks committed private keys
+
+  # --- Secret scanning (enforces "no keys in git" — SKILL.md §3.2) -----------
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.21.2
+    hooks:
+      - id: gitleaks
+
+  # --- Local guard: never let an actual .env file get staged -----------------
+  - repo: local
+    hooks:
+      - id: block-dotenv
+        name: block committing .env files
+        entry: "Refusing to commit a .env file. Keep secrets out of git; commit .env.example instead."
+        language: fail
+        files: '(^|/)\.env(\..+)?$'
+        # Allow the documented example file through:
+        exclude: '(^|/)\.env\.example$'
+
+  # ===========================================================================
+  # ADAPTIVE STACK HOOKS (Uncomment or adapt according to the project toolchain)
+  # ===========================================================================
+
+  # --- [Rust Stack] ----------------------------------------------------------
+  # - repo: local
+  #   hooks:
+  #     - id: cargo-fmt
+  #       name: cargo fmt
+  #       entry: cargo fmt -- --check
+  #       language: system
+  #       types: [rust]
+  #       pass_filenames: false
+  #     - id: cargo-clippy
+  #       name: cargo clippy
+  #       entry: cargo clippy --all-targets --all-features -- -D warnings
+  #       language: system
+  #       types: [rust]
+  #       pass_filenames: false
+
+  # --- [Python Stack (uv)] ---------------------------------------------------
+  # - repo: https://github.com/astral-sh/ruff-pre-commit
+  #   rev: v0.8.4
+  #   hooks:
+  #     - id: ruff
+  #       args: ["--fix"]
+  #     - id: ruff-format
+
+  # --- [Go Stack] ------------------------------------------------------------
+  # - repo: https://github.com/golangci/golangci-lint
+  #   rev: v1.62.2
+  #   hooks:
+  #     - id: golangci-lint

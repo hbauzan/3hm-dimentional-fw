@@ -1,0 +1,967 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Three-Headed Semantic Firewall v0.2.0 — Web Diagnostic Studio</title>
+  <style>
+    :root {
+      --bg-primary: #0b0f17;
+      --bg-secondary: #111827;
+      --bg-card: #161f30;
+      --bg-hover: #1e293b;
+      --border-color: #273549;
+      --border-bright: #38bdf8;
+      --text-main: #f1f5f9;
+      --text-muted: #94a3b8;
+      --color-pass: #10b981;
+      --color-breach: #ef4444;
+      --color-univ: #475569;
+      --color-snr: #64748b;
+      --color-accent: #0284c7;
+      --color-warning: #f59e0b;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background-color: var(--bg-primary);
+      color: var(--text-main);
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      font-size: 13px;
+      line-height: 1.45;
+      padding: 16px;
+      min-height: 100vh;
+    }
+
+    header {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      align-items: center;
+      background: var(--bg-secondary);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      padding: 12px 18px;
+      margin-bottom: 16px;
+      gap: 12px;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .brand h1 {
+      font-size: 16px;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+      color: #38bdf8;
+      text-transform: uppercase;
+    }
+
+    .badge {
+      background: #0369a1;
+      color: #e0f2fe;
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-size: 11px;
+      font-weight: 600;
+    }
+
+    .controls-grid {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 10px;
+    }
+
+    label {
+      font-size: 11px;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+    }
+
+    select, input, button {
+      background: var(--bg-primary);
+      border: 1px solid var(--border-color);
+      color: var(--text-main);
+      padding: 6px 10px;
+      border-radius: 4px;
+      font-family: inherit;
+      font-size: 12px;
+      outline: none;
+      transition: border-color 0.15s ease;
+    }
+
+    select:focus, input:focus {
+      border-color: var(--border-bright);
+    }
+
+    button {
+      background: #0284c7;
+      color: white;
+      font-weight: 600;
+      cursor: pointer;
+      border: 1px solid #0369a1;
+    }
+
+    button:hover {
+      background: #0369a1;
+    }
+
+    button.secondary {
+      background: var(--bg-card);
+      border-color: var(--border-color);
+      color: var(--text-muted);
+    }
+
+    button.secondary:hover {
+      background: var(--bg-hover);
+      color: var(--text-main);
+    }
+
+    .layout-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+
+    @media (max-width: 1180px) {
+      .layout-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .panel {
+      background: var(--bg-secondary);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .panel-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid var(--border-color);
+      padding-bottom: 8px;
+    }
+
+    .panel-title {
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: #93c5fd;
+    }
+
+    .panel-stat {
+      font-size: 11px;
+      color: var(--text-muted);
+    }
+
+    .prompt-box {
+      width: 100%;
+      height: 72px;
+      background: var(--bg-primary);
+      border: 1px solid var(--border-color);
+      color: var(--text-main);
+      padding: 8px 10px;
+      border-radius: 4px;
+      font-family: inherit;
+      font-size: 12px;
+      resize: vertical;
+    }
+
+    .clauses-container {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      max-height: 220px;
+      overflow-y: auto;
+      padding-right: 4px;
+    }
+
+    .clause-pill {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      padding: 8px 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+
+    .clause-pill:hover, .clause-pill.active {
+      border-color: var(--border-bright);
+      background: var(--bg-hover);
+    }
+
+    .clause-pill-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 11px;
+    }
+
+    .clause-title {
+      font-weight: 700;
+      color: #38bdf8;
+    }
+
+    .clause-tag {
+      padding: 1px 6px;
+      border-radius: 3px;
+      font-weight: 700;
+      font-size: 10px;
+    }
+
+    .clause-text {
+      color: #cbd5e1;
+      font-size: 12px;
+      word-break: break-all;
+    }
+
+    .clause-metrics {
+      display: flex;
+      gap: 12px;
+      color: var(--text-muted);
+      font-size: 11px;
+    }
+
+    .tag-pass { background: #064e3b; color: #34d399; }
+    .tag-breach { background: #7f1d1d; color: #f87171; }
+
+    .heads-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+    }
+
+    @media (max-width: 768px) {
+      .heads-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .head-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .head-card.pass {
+      border-left: 4px solid var(--color-pass);
+    }
+
+    .head-card.breach {
+      border-left: 4px solid var(--color-breach);
+    }
+
+    .head-name {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      color: var(--text-muted);
+    }
+
+    .head-verdict {
+      font-size: 14px;
+      font-weight: 700;
+    }
+
+    .head-verdict.pass { color: var(--color-pass); }
+    .head-verdict.breach { color: var(--color-breach); }
+
+    .head-telemetry {
+      font-size: 11px;
+      color: var(--text-muted);
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .comparison-bar-container {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .comp-row {
+      display: grid;
+      grid-template-columns: 140px 1fr 90px;
+      align-items: center;
+      gap: 10px;
+      font-size: 11px;
+    }
+
+    .comp-bar-bg {
+      background: var(--bg-primary);
+      border-radius: 4px;
+      height: 14px;
+      overflow: hidden;
+      display: flex;
+      position: relative;
+    }
+
+    .comp-bar-fill {
+      height: 100%;
+      transition: width 0.3s ease;
+    }
+
+    .comp-bar-fill.pass { background: var(--color-pass); }
+    .comp-bar-fill.breach { background: var(--color-breach); }
+
+    .canvas-container {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      position: relative;
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      padding: 12px;
+    }
+
+    canvas {
+      image-rendering: pixelated;
+      cursor: crosshair;
+      border: 1px solid #334155;
+      background: #000;
+    }
+
+    .legend {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 14px;
+      margin-top: 10px;
+      font-size: 11px;
+    }
+
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .legend-color {
+      width: 10px;
+      height: 10px;
+      border-radius: 2px;
+    }
+
+    #hud {
+      position: absolute;
+      display: none;
+      background: rgba(15, 23, 42, 0.95);
+      border: 1px solid var(--border-bright);
+      border-radius: 4px;
+      padding: 8px 10px;
+      font-size: 11px;
+      color: #f8fafc;
+      pointer-events: none;
+      z-index: 100;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+      line-height: 1.35;
+    }
+
+    .table-container {
+      max-height: 240px;
+      overflow-y: auto;
+      border: 1px solid var(--border-color);
+      border-radius: 4px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      text-align: left;
+      font-size: 11px;
+    }
+
+    th {
+      background: var(--bg-card);
+      color: var(--text-muted);
+      padding: 6px 10px;
+      position: sticky;
+      top: 0;
+      border-bottom: 1px solid var(--border-color);
+      text-transform: uppercase;
+      font-weight: 600;
+    }
+
+    td {
+      padding: 5px 10px;
+      border-bottom: 1px solid #1e293b;
+      font-variant-numeric: tabular-nums;
+    }
+
+    tr:hover td {
+      background: var(--bg-hover);
+    }
+
+    .status-pill {
+      padding: 1px 6px;
+      border-radius: 3px;
+      font-weight: 700;
+      font-size: 10px;
+      display: inline-block;
+    }
+
+    .status-ACTIVE_PASS { background: #064e3b; color: #34d399; }
+    .status-ACTIVE_BREACH { background: #7f1d1d; color: #f87171; }
+    .status-PRUNED_UNIVERSAL { background: #334155; color: #94a3b8; }
+    .status-PRUNED_SNR { background: #475569; color: #cbd5e1; }
+  </style>
+</head>
+<body>
+
+  <header>
+    <div class="brand">
+      <h1>Three-Headed Semantic Firewall</h1>
+      <span class="badge" id="productVersionBadge">v0.2.0</span>
+      <span class="badge" style="background:#047857" id="statusBadge">READY</span>
+    </div>
+
+    <div class="controls-grid">
+      <div>
+        <label for="inputModeSelect">Input Mode</label><br />
+        <select id="inputModeSelect">
+          <option value="catalog">Rompepepe 220 Catalog</option>
+          <option value="custom">Custom Prompt / Piggybacking Lab</option>
+        </select>
+      </div>
+
+      <div id="catalogSelectorGroup">
+        <label for="vectorIndexSelect">Catalog Vector</label><br />
+        <select id="vectorIndexSelect" style="max-width: 260px;"></select>
+      </div>
+
+      <div>
+        <label for="targetLockSelect">Target Lock</label><br />
+        <select id="targetLockSelect" style="max-width: 200px;">
+          <option value="*">* (Wildcard AnyAllowlist)</option>
+          <option value="*all">* (Wildcard AllLocks)</option>
+        </select>
+      </div>
+
+      <div>
+        <label for="l3StrategySelect">Head 3 Strategy</label><br />
+        <select id="l3StrategySelect">
+          <option value="mode_c" selected>Mode C: Spectral Quorum (K=103)</option>
+          <option value="mode_a">Mode A: Top-K</option>
+          <option value="mode_b">Mode B: Strict Box (1024D)</option>
+        </select>
+      </div>
+
+      <div style="align-self: flex-end;">
+        <button id="inspectBtn">Run Inspection</button>
+        <button id="reloadBtn" class="secondary" title="Reload locks from backing LanceDB">Reload</button>
+      </div>
+    </div>
+  </header>
+
+  <div class="layout-grid">
+    <!-- PANEL 1: Input & Head 2 (L2) Clause Segmenter -->
+    <div class="panel">
+      <div class="panel-header">
+        <span class="panel-title">Panel 1 — Input & Head 2 (L2) Segmenter</span>
+        <span class="panel-stat" id="clauseLatencyStat">Segmentation: -- ns</span>
+      </div>
+
+      <textarea id="promptText" class="prompt-box" placeholder="Input prompt text for evaluation..."></textarea>
+
+      <div style="font-size: 11px; color: var(--text-muted); text-transform: uppercase;">
+        Extracted Clauses & L2 / L3 Scores (Click to inspect 1024D):
+      </div>
+
+      <div class="clauses-container" id="clausesContainer">
+        <div style="color: var(--text-muted); padding: 8px;">No clauses extracted yet. Run inspection to populate.</div>
+      </div>
+    </div>
+
+    <!-- PANEL 2: The Three Heads Cascade & Comparative Matrix -->
+    <div class="panel">
+      <div class="panel-header">
+        <span class="panel-title">Panel 2 — Three Heads Cascade & Modes</span>
+        <span class="panel-stat" id="totalLatencyStat">Total Latency: -- ns</span>
+      </div>
+
+      <div class="heads-grid">
+        <!-- Head 1 -->
+        <div class="head-card" id="head1Card">
+          <div class="head-name">Head 1: L1 Cosine</div>
+          <div class="head-verdict" id="head1Verdict">--</div>
+          <div class="head-telemetry">
+            <div>Score: <span id="head1Score">--</span></div>
+            <div>Hex: <span id="head1Hex">--</span></div>
+            <div>Floor: <span id="head1Threshold">--</span></div>
+            <div>Time: <span id="head1Time">--</span></div>
+          </div>
+        </div>
+
+        <!-- Head 2 -->
+        <div class="head-card" id="head2Card">
+          <div class="head-name">Head 2: L2 Clauses</div>
+          <div class="head-verdict" id="head2Verdict">--</div>
+          <div class="head-telemetry">
+            <div>Clauses: <span id="head2Count">--</span></div>
+            <div>Min Cos: <span id="head2MinCos">--</span></div>
+            <div>Floor: <span id="head2Threshold">--</span></div>
+            <div>Time: <span id="head2Time">--</span></div>
+          </div>
+        </div>
+
+        <!-- Head 3 -->
+        <div class="head-card" id="head3Card">
+          <div class="head-name">Head 3: L3 DDI</div>
+          <div class="head-verdict" id="head3Verdict">--</div>
+          <div class="head-telemetry">
+            <div>Strategy: <span id="head3Mode">--</span></div>
+            <div>Votes: <span id="head3Votes">--</span></div>
+            <div>Active Dims: <span id="head3Dims">--</span></div>
+            <div>Time: <span id="head3Time">--</span></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Comparative Containment Matrix -->
+      <div class="comparison-bar-container">
+        <div style="font-size: 11px; font-weight: 700; color: #93c5fd; text-transform: uppercase;">
+          Simultaneous Containment Comparison (Why Mode C Blocks Leakage):
+        </div>
+
+        <div class="comp-row">
+          <span>Scalar Cosine Baseline</span>
+          <div class="comp-bar-bg">
+            <div class="comp-bar-fill" id="barCosine" style="width: 0%;"></div>
+          </div>
+          <span id="labelCosine" style="text-align: right;">--</span>
+        </div>
+
+        <div class="comp-row">
+          <span>L3 Mode A (Top-K)</span>
+          <div class="comp-bar-bg">
+            <div class="comp-bar-fill" id="barModeA" style="width: 0%;"></div>
+          </div>
+          <span id="labelModeA" style="text-align: right;">--</span>
+        </div>
+
+        <div class="comp-row">
+          <span>L3 Mode B (Strict 1024D)</span>
+          <div class="comp-bar-bg">
+            <div class="comp-bar-fill" id="barModeB" style="width: 0%;"></div>
+          </div>
+          <span id="labelModeB" style="text-align: right;">--</span>
+        </div>
+
+        <div class="comp-row">
+          <span>L3 Mode C (Quorum K=103)</span>
+          <div class="comp-bar-bg">
+            <div class="comp-bar-fill" id="barModeC" style="width: 0%;"></div>
+          </div>
+          <span id="labelModeC" style="text-align: right;">--</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- PANEL 3: 1024D Spectral Heatmap (32x32 Grid) -->
+    <div class="panel">
+      <div class="panel-header">
+        <span class="panel-title">Panel 3 — 1024D Spectral Heatmap (32×32)</span>
+        <span class="panel-stat" id="heatmapSummaryStat">1,024 Coordinates</span>
+      </div>
+
+      <div class="canvas-container">
+        <canvas id="heatmapCanvas" width="416" height="416"></canvas>
+        <div id="hud"></div>
+
+        <div class="legend">
+          <div class="legend-item"><div class="legend-color" style="background: var(--color-pass);"></div>ACTIVE_PASS (In-Box)</div>
+          <div class="legend-item"><div class="legend-color" style="background: var(--color-breach);"></div>ACTIVE_BREACH (Out-of-Box)</div>
+          <div class="legend-item"><div class="legend-color" style="background: var(--color-univ);"></div>PRUNED_UNIVERSAL (9 Dims)</div>
+          <div class="legend-item"><div class="legend-color" style="background: var(--color-snr);"></div>PRUNED_SNR (30 Dims)</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- PANEL 4: IEEE 754 Coordinate Breach Table -->
+    <div class="panel">
+      <div class="panel-header">
+        <span class="panel-title">Panel 4 — IEEE 754 Breach Telemetry Table</span>
+        <span class="panel-stat" id="breachCountStat">0 Breaches</span>
+      </div>
+
+      <div class="table-container">
+        <table id="breachTable">
+          <thead>
+            <tr>
+              <th>Dim #</th>
+              <th>Status</th>
+              <th>Top-K</th>
+              <th>Observed f32</th>
+              <th>Observed Hex</th>
+              <th>Bounds [Lo, Hi]</th>
+              <th>Δ Out-of-Bounds</th>
+            </tr>
+          </thead>
+          <tbody id="breachTableBody">
+            <tr><td colspan="7" style="text-align: center; color: var(--text-muted); padding: 16px;">Run inspection to view coordinate telemetry.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const CANVAS_SIZE = 416;
+    const GRID_SIZE = 32;
+    const CELL_SIZE = CANVAS_SIZE / GRID_SIZE; // 13px
+
+    let catalogData = { locks: [], rompepepe_vectors: [] };
+    let currentInspection = null;
+    let coordinatesData = [];
+
+    const canvas = document.getElementById('heatmapCanvas');
+    const ctx = canvas.getContext('2d');
+    const hud = document.getElementById('hud');
+
+    async function initCatalog() {
+      try {
+        const res = await fetch('/api/v1/catalog');
+        if (!res.ok) throw new Error('Failed to load catalog');
+        catalogData = await res.json();
+
+        // Populate Target Locks
+        const lockSelect = document.getElementById('targetLockSelect');
+        catalogData.locks.forEach(lock => {
+          const opt = document.createElement('option');
+          opt.value = lock.domain_id;
+          opt.textContent = `${lock.domain_id} (K=${lock.quorum_k}, active=${lock.active_dims})`;
+          lockSelect.appendChild(opt);
+        });
+
+        // Populate Rompepepe Vectors
+        const vecSelect = document.getElementById('vectorIndexSelect');
+        catalogData.rompepepe_vectors.forEach(v => {
+          const opt = document.createElement('option');
+          opt.value = v.index;
+          opt.textContent = `#${v.index} [${v.category_label}] -> ${v.target_lock_id} (v${v.variant_id})`;
+          vecSelect.appendChild(opt);
+        });
+
+        // Update prompt text if catalog mode
+        updateInputModeUI();
+        runInspection();
+      } catch (err) {
+        console.error('Catalog load error:', err);
+      }
+    }
+
+    function updateInputModeUI() {
+      const mode = document.getElementById('inputModeSelect').value;
+      const catGroup = document.getElementById('catalogSelectorGroup');
+      const promptBox = document.getElementById('promptText');
+
+      if (mode === 'catalog') {
+        catGroup.style.display = 'block';
+        const vIdx = parseInt(document.getElementById('vectorIndexSelect').value || '0', 10);
+        const vec = catalogData.rompepepe_vectors.find(v => v.index === vIdx);
+        if (vec) {
+          promptBox.value = vec.sample_prompt;
+          promptBox.readOnly = true;
+          document.getElementById('targetLockSelect').value = vec.target_lock_id;
+        }
+      } else {
+        catGroup.style.display = 'none';
+        promptBox.readOnly = false;
+        if (!promptBox.value.trim()) {
+          promptBox.value = 'Valid user query clause. """Hidden prompt injection payload clause attempting breach.""" Additional trailing statement.';
+        }
+      }
+    }
+
+    async function runInspection() {
+      const mode = document.getElementById('inputModeSelect').value;
+      const targetLockVal = document.getElementById('targetLockSelect').value;
+      const l3ModeVal = document.getElementById('l3StrategySelect').value;
+      const statusBadge = document.getElementById('statusBadge');
+
+      statusBadge.textContent = 'EVALUATING';
+      statusBadge.style.background = '#0284c7';
+
+      let payload = {
+        l3_mode: l3ModeVal,
+      };
+
+      if (targetLockVal === '*all') {
+        payload.domain_id = '*';
+        payload.wildcard_mode = 'all';
+      } else if (targetLockVal === '*') {
+        payload.domain_id = '*';
+        payload.wildcard_mode = 'any';
+      } else {
+        payload.domain_id = targetLockVal;
+      }
+
+      if (mode === 'catalog') {
+        payload.vector_index = parseInt(document.getElementById('vectorIndexSelect').value || '0', 10);
+      } else {
+        payload.prompt_text = document.getElementById('promptText').value;
+      }
+
+      try {
+        const res = await fetch('/api/v1/inspect', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+
+        const data = await res.json();
+        currentInspection = data;
+        renderInspection(data);
+
+        if (data.overall_passed) {
+          statusBadge.textContent = 'PASS (200)';
+          statusBadge.style.background = '#047857';
+        } else {
+          statusBadge.textContent = 'BREACH (403)';
+          statusBadge.style.background = '#b91c1c';
+        }
+      } catch (err) {
+        console.error('Inspection failed:', err);
+        statusBadge.textContent = 'ERROR';
+        statusBadge.style.background = '#b91c1c';
+      }
+    }
+
+    function renderInspection(data) {
+      document.getElementById('promptText').value = data.prompt;
+      document.getElementById('clauseLatencyStat').textContent = `Segmentation: ${data.head2_l2.latency_ns} ns`;
+      const totalNs = (data.head1_l1.latency_ns || 0) + (data.head2_l2.latency_ns || 0) + (data.head3_l3.latency_ns || 0);
+      document.getElementById('totalLatencyStat').textContent = `Total Latency: ${totalNs} ns`;
+
+      // Panel 1 Clauses
+      const clausesContainer = document.getElementById('clausesContainer');
+      clausesContainer.innerHTML = '';
+      data.head2_l2.clauses.forEach((c, idx) => {
+        const pill = document.createElement('div');
+        pill.className = 'clause-pill' + (idx === 0 ? ' active' : '');
+        const tagClass = c.passed && c.l3_passed ? 'tag-pass' : 'tag-breach';
+        const tagText = c.passed && c.l3_passed ? 'PASS' : 'BREACH';
+        pill.innerHTML = `
+          <div class="clause-pill-top">
+            <span class="clause-title">[Clause #${c.index}]</span>
+            <span class="clause-tag ${tagClass}">${tagText}</span>
+          </div>
+          <div class="clause-text">"${c.text}"</div>
+          <div class="clause-metrics">
+            <span>SHA-256: <code>${c.sha256_prefix}…</code></span>
+            <span>L2 Cos: <b>${c.cosine.toFixed(4)}</b></span>
+            <span>L3 Votes: <b>${c.l3_votes} / ${c.l3_required}</b></span>
+            <span>${c.latency_ns} ns</span>
+          </div>
+        `;
+        clausesContainer.appendChild(pill);
+      });
+
+      // Panel 2 Cards
+      const h1 = data.head1_l1;
+      const h1Card = document.getElementById('head1Card');
+      h1Card.className = 'head-card ' + (h1.passed ? 'pass' : 'breach');
+      document.getElementById('head1Verdict').textContent = h1.passed ? 'PASS' : 'BREACH';
+      document.getElementById('head1Verdict').className = 'head-verdict ' + (h1.passed ? 'pass' : 'breach');
+      document.getElementById('head1Score').textContent = h1.cosine.toFixed(4);
+      document.getElementById('head1Hex').textContent = h1.cosine_hex;
+      document.getElementById('head1Threshold').textContent = `≥ ${h1.threshold.toFixed(2)}`;
+      document.getElementById('head1Time').textContent = `${h1.latency_ns} ns`;
+
+      const h2 = data.head2_l2;
+      const h2Card = document.getElementById('head2Card');
+      h2Card.className = 'head-card ' + (h2.passed ? 'pass' : 'breach');
+      document.getElementById('head2Verdict').textContent = h2.passed ? 'PASS' : 'BREACH';
+      document.getElementById('head2Verdict').className = 'head-verdict ' + (h2.passed ? 'pass' : 'breach');
+      document.getElementById('head2Count').textContent = `${h2.total_clauses} clauses`;
+      const minCos = Math.min(...h2.clauses.map(c => c.cosine));
+      document.getElementById('head2MinCos').textContent = isFinite(minCos) ? minCos.toFixed(4) : '--';
+      document.getElementById('head2Threshold').textContent = h2.clauses[0] ? `≥ ${h2.clauses[0].threshold.toFixed(2)}` : '--';
+      document.getElementById('head2Time').textContent = `${h2.latency_ns} ns`;
+
+      const h3 = data.head3_l3;
+      const h3Card = document.getElementById('head3Card');
+      h3Card.className = 'head-card ' + (h3.passed ? 'pass' : 'breach');
+      document.getElementById('head3Verdict').textContent = h3.passed ? 'PASS' : 'BREACH';
+      document.getElementById('head3Verdict').className = 'head-verdict ' + (h3.passed ? 'pass' : 'breach');
+      document.getElementById('head3Mode').textContent = h3.selected_mode;
+      document.getElementById('head3Votes').textContent = `${h3.affirmative_votes} / ${h3.required_votes}`;
+      document.getElementById('head3Dims').textContent = `${h3.evaluated_dimensions} dims`;
+      document.getElementById('head3Time').textContent = `${h3.latency_ns} ns`;
+
+      // Comparison Bar
+      const mc = data.mode_comparison;
+      updateCompRow('barCosine', 'labelCosine', mc.cosine_passed, mc.scalar_cosine, mc.cosine_threshold, `${mc.scalar_cosine.toFixed(4)} (Cos)`);
+      updateCompRow('barModeA', 'labelModeA', mc.mode_a.passed, mc.mode_a.affirmative_votes / (mc.mode_a.required_votes || 1), 1.0, `${mc.mode_a.affirmative_votes}/${mc.mode_a.required_votes} votes`);
+      updateCompRow('barModeB', 'labelModeB', mc.mode_b.passed, mc.mode_b.affirmative_votes / (mc.mode_b.required_votes || 1), 1.0, `${mc.mode_b.affirmative_votes}/${mc.mode_b.required_votes} votes`);
+      updateCompRow('barModeC', 'labelModeC', mc.mode_c.passed, mc.mode_c.affirmative_votes / (mc.mode_c.required_votes || 1), 1.0, `${mc.mode_c.affirmative_votes}/${mc.mode_c.required_votes} (K=103)`);
+
+      // Heatmap Canvas
+      coordinatesData = data.coordinates_1024;
+      renderHeatmap(coordinatesData);
+
+      // Breach Table
+      document.getElementById('breachCountStat').textContent = `${data.total_breaches} Breaching Coordinates`;
+      const tableBody = document.getElementById('breachTableBody');
+      tableBody.innerHTML = '';
+      if (data.top_breaches.length === 0) {
+        tableBody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: var(--color-pass); padding: 16px;">Zero out-of-bounds coordinates detected. Perfect hypercube alignment.</td></tr>';
+      } else {
+        data.top_breaches.slice(0, 100).forEach(b => {
+          const row = document.createElement('tr');
+          row.innerHTML = `
+            <td><b>${b.dim}</b></td>
+            <td><span class="status-pill status-${b.status}">${b.status}</span></td>
+            <td>${b.is_top_k ? '<span style="color:#38bdf8;">YES</span>' : '<span style="color:#64748b;">NO</span>'}</td>
+            <td>${b.observed_f32.toFixed(6)}</td>
+            <td><code>${b.observed_hex}</code></td>
+            <td>[${b.lo_bound_f32.toFixed(4)}, ${b.hi_bound_f32.toFixed(4)}]</td>
+            <td style="color: var(--color-breach); font-weight:700;">+${b.delta_f32.toFixed(6)}</td>
+          `;
+          tableBody.appendChild(row);
+        });
+      }
+    }
+
+    function updateCompRow(barId, labelId, passed, val, threshold, text) {
+      const bar = document.getElementById(barId);
+      const label = document.getElementById(labelId);
+      bar.className = 'comp-bar-fill ' + (passed ? 'pass' : 'breach');
+      const pct = Math.min(Math.max(val * 100, 5), 100);
+      bar.style.width = `${pct}%`;
+      label.textContent = text;
+      label.style.color = passed ? 'var(--color-pass)' : 'var(--color-breach)';
+    }
+
+    function renderHeatmap(coords) {
+      ctx.clearRect(0, 0, CANVAS_SIZE, CANVAS_SIZE);
+
+      coords.forEach(cell => {
+        const row = Math.floor(cell.dim / GRID_SIZE);
+        const col = cell.dim % GRID_SIZE;
+        const x = col * CELL_SIZE;
+        const y = row * CELL_SIZE;
+
+        let fill = '#10b981'; // ACTIVE_PASS
+        if (cell.status === 'ACTIVE_BREACH') fill = '#ef4444';
+        else if (cell.status === 'PRUNED_UNIVERSAL') fill = '#475569';
+        else if (cell.status === 'PRUNED_SNR') fill = '#64748b';
+
+        ctx.fillStyle = fill;
+        ctx.fillRect(x, y, CELL_SIZE, CELL_SIZE);
+
+        ctx.strokeStyle = '#0b0f17';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(x, y, CELL_SIZE, CELL_SIZE);
+
+        if (cell.is_top_k) {
+          ctx.fillStyle = '#ffffff';
+          ctx.fillRect(x + CELL_SIZE / 2 - 1, y + CELL_SIZE / 2 - 1, 2, 2);
+        }
+      });
+    }
+
+    // Heatmap hover HUD
+    canvas.addEventListener('mousemove', (e) => {
+      if (!coordinatesData || coordinatesData.length === 0) return;
+      const rect = canvas.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+
+      const col = Math.floor(x / CELL_SIZE);
+      const row = Math.floor(y / CELL_SIZE);
+
+      if (col < 0 || col >= GRID_SIZE || row < 0 || row >= GRID_SIZE) {
+        hud.style.display = 'none';
+        return;
+      }
+
+      const dim = row * GRID_SIZE + col;
+      const cell = coordinatesData[dim];
+      if (!cell) return;
+
+      hud.style.display = 'block';
+      hud.style.left = `${Math.min(e.pageX - rect.left + 15, CANVAS_SIZE - 180)}px`;
+      hud.style.top = `${Math.min(e.pageY - rect.top + 15, CANVAS_SIZE - 120)}px`;
+
+      hud.innerHTML = `
+        <div style="font-weight:700; color:#38bdf8;">Dim #${cell.dim} ${cell.is_top_k ? '(Top-K)' : ''}</div>
+        <div>Status: <span class="status-pill status-${cell.status}">${cell.status}</span></div>
+        <div>Observed: <b>${cell.observed_f32.toFixed(6)}</b> (<code>${cell.observed_hex}</code>)</div>
+        <div>Bounds: [${cell.lo_bound_f32.toFixed(4)}, ${cell.hi_bound_f32.toFixed(4)}]</div>
+        <div>Δ Breach: <b style="color:${cell.delta_f32 > 0 ? 'var(--color-breach)' : 'var(--color-pass)'}">${cell.delta_f32.toFixed(6)}</b></div>
+      `;
+    });
+
+    canvas.addEventListener('mouseleave', () => {
+      hud.style.display = 'none';
+    });
+
+    // Event listeners
+    document.getElementById('inputModeSelect').addEventListener('change', () => {
+      updateInputModeUI();
+      runInspection();
+    });
+
+    document.getElementById('vectorIndexSelect').addEventListener('change', () => {
+      updateInputModeUI();
+      runInspection();
+    });
+
+    document.getElementById('targetLockSelect').addEventListener('change', runInspection);
+    document.getElementById('l3StrategySelect').addEventListener('change', runInspection);
+    document.getElementById('inspectBtn').addEventListener('click', runInspection);
+
+    document.getElementById('reloadBtn').addEventListener('click', async () => {
+      const btn = document.getElementById('reloadBtn');
+      btn.textContent = 'Reloading…';
+      try {
+        const res = await fetch('/api/v1/reload', { method: 'POST' });
+        const resJson = await res.json();
+        alert(`Reloaded ${resJson.lock_count} domain locks from LanceDB.`);
+      } catch (err) {
+        alert('Reload failed: ' + err);
+      } finally {
+        btn.textContent = 'Reload';
+      }
+    });
+
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+        runInspection();
+      }
+    });
+
+    initCatalog();
+  </script>
+</body>
+</html>

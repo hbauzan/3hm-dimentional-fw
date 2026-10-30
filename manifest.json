@@ -1,6 +1,7 @@
 {
   "project": "sf-core",
-  "version": "0.1.0",
+  "product_name": "Three-Headed Semantic Firewall",
+  "version": "0.2.0",
   "state_schema": {
     "vector_dim": 1024,
     "default_quorum_k": 103,

@@ -5323,7 +5323,7 @@ dependencies = [
 
 [[package]]
 name = "sf-bench"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "axum",
  "bytes",
@@ -5343,7 +5343,7 @@ dependencies = [
 
 [[package]]
 name = "sf-kernels"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "criterion",
  "half",
@@ -5353,7 +5353,7 @@ dependencies = [
 
 [[package]]
 name = "sf-proxy"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "async-trait",
  "axum",
@@ -5378,7 +5378,7 @@ dependencies = [
 
 [[package]]
 name = "sf-storage"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "arc-swap",
  "arrow-array",
@@ -5392,6 +5392,29 @@ dependencies = [
  "sf-kernels",
  "sha2 0.10.9",
  "tokio",
+]
+
+[[package]]
+name = "sf-ui"
+version = "0.2.0"
+dependencies = [
+ "arc-swap",
+ "async-trait",
+ "axum",
+ "bytes",
+ "clap",
+ "rand 0.8.8",
+ "rand_chacha 0.3.1",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "sf-bench",
+ "sf-kernels",
+ "sf-proxy",
+ "sf-storage",
+ "sha2 0.10.9",
+ "tokio",
+ "tower",
 ]
 
 [[package]]

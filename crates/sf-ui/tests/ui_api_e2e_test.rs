@@ -2,8 +2,9 @@
 //!
 //! Spawns a real loopback TcpListener on 127.0.0.1:0 and validates:
 //! 1. GET / returns 200 OK and contains "Three-Headed Semantic Firewall" and <canvas.
-//! 2. GET /api/v1/catalog returns 55 locks and 220 Rompepepe vectors.
-//! 3. POST /api/v1/inspect on a Rompepepe piggybacked cosine-leak vector returns
+//! 2. GET / contains the Chat Playground element ids.
+//! 3. GET /api/v1/catalog returns 55 locks and 220 Rompepepe vectors.
+//! 4. POST /api/v1/inspect on a Rompepepe piggybacked cosine-leak vector returns
 //!    http_status == 403, head1_l1.passed == true, head3_l3.mode_a.passed == true,
 //!    head3_l3.mode_c.passed == false, head3_l3.mode_c.affirmative_votes == 80,
 //!    and coordinates_1024.len() == 1024 with exact PRUNED_UNIVERSAL tags at
@@ -63,6 +64,31 @@ async fn test_get_index_contains_required_elements() {
         body.contains("<canvas"),
         "index must contain HTML5 <canvas element"
     );
+}
+
+#[tokio::test]
+async fn test_get_index_contains_chat_playground_elements() {
+    let (base_url, _handle) = spawn_test_server().await;
+    let client = reqwest::Client::new();
+
+    let res = client
+        .get(format!("{base_url}/"))
+        .send()
+        .await
+        .expect("GET /");
+
+    assert_eq!(res.status(), reqwest::StatusCode::OK);
+    let body = res.text().await.expect("read index body");
+    for needle in [
+        "id=\"tabChat\"",
+        "id=\"tabDiagnostic\"",
+        "id=\"chatMessages\"",
+        "id=\"chatPromptInput\"",
+        "id=\"btnSendChat\"",
+        "id=\"chatDomainSelect\"",
+    ] {
+        assert!(body.contains(needle), "index missing {needle}");
+    }
 }
 
 #[tokio::test]

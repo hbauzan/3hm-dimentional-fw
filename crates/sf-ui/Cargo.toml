@@ -1,0 +1,33 @@
+[package]
+name = "sf-ui"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+description = "Embedded Web Diagnostic Studio for Three-Headed Semantic Firewall"
+
+[[bin]]
+name = "sf-ui"
+path = "src/bin/sf_ui.rs"
+
+[dependencies]
+sf-kernels = { path = "../sf-kernels" }
+sf-storage = { path = "../sf-storage" }
+sf-proxy = { path = "../sf-proxy" }
+sf-bench = { path = "../sf-bench" }
+axum = { workspace = true }
+async-trait = { workspace = true }
+tokio = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+clap = { workspace = true }
+arc-swap = { workspace = true }
+tower = { workspace = true }
+bytes = { workspace = true }
+sha2 = { workspace = true }
+rand = { workspace = true }
+rand_chacha = { workspace = true }
+
+[dev-dependencies]
+reqwest = { workspace = true }

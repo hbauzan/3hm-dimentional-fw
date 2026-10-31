@@ -64,6 +64,9 @@ rand_chacha = "0.3.1"
 debug = 0
 split-debuginfo = "unpacked"
 
+[profile.dev.package.sf-kernels]
+opt-level = 3
+
 [profile.release]
 opt-level = 3
 lto = false

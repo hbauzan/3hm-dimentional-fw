@@ -54,3 +54,9 @@ A pass returns the upstream body as `text/event-stream` and does not buffer the 
 Request overrides replace `l1_cosine_threshold`, `l2_clause_threshold`, `quorum_k`, and `epsilon` on a clone. An epsilon override rebuilds dilated bounds from the stored epsilon: raw bound = dilated bound ± stored epsilon, then dilate again with the request epsilon. The registry lock is left unchanged.
 
 The upstream body is OpenAI chat-completions JSON (`model`, `messages`, `stream: true`). A per-request base that already ends in `/v1` or `/openai` joins `/chat/completions`. Any other host joins `/v1/chat/completions`. `api_key` is sent as `Authorization: Bearer` and is omitted from the JSON body. `/v1/chat/completions` on `sf-proxy` keeps its process-wide base (`{base}/v1/chat/completions`) and its breach envelope (`L1_CATEGORICAL_COSINE`, `L2_SLIDING_WINDOW`, `L3_DDI_INSPECTOR`).
+
+## Gateway daemon
+
+The `sf-proxy` binary loads a LanceDB registry and serves both ingress routes on `SF_HOST`:`SF_PORT` (default `127.0.0.1:8088`). `POST /v1/chat/completions` still returns `BreachErrorEnvelope`. `POST /api/v1/chat` returns `ChatBreachDto` or an unbuffered `text/event-stream`. The two JSON shapes stay distinct.
+
+`SF_CORS_ORIGIN` sets `Access-Control-Allow-Origin`. An empty value or `*` allows any origin. Chat overrides clone the **DomainHypercubeLock** for that request. A registry write happens only through an explicit LanceDB reload.

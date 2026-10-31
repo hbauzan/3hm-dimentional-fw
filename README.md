@@ -14,6 +14,12 @@ cargo test --workspace
 
 Copy `.env.example` to `.env` for local endpoints. `.env` stays untracked.
 
+The gateway daemon is `sf-proxy`. It reads the same environment variables and requires `LANCEDB_URI`.
+
+```bash
+cargo run -p sf-proxy --bin sf-proxy
+```
+
 ## Architecture & Roadmap
 
 - [Deterministic AI Engineering Roadmap](roadmap/deterministic-ai-roadmap.md)

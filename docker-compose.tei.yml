@@ -1,0 +1,11 @@
+services:
+  tei:
+    image: ghcr.io/huggingface/text-embeddings-inference:cpu-1.6
+    container_name: sf-tei
+    platform: linux/amd64
+    ports:
+      - "8080:80"
+    volumes:
+      - ~/.cache/huggingface/hub:/data
+    command: --model-id BAAI/bge-m3 --port 80 --max-client-batch-size 16 --max-concurrent-requests 64
+    restart: unless-stopped

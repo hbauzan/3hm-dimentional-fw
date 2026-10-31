@@ -19,10 +19,12 @@ DIM="\033[2m"
 SF_PROXY_PORT="${SF_PORT:-8088}"
 SF_SPA_PORT="${VITE_PORT:-5173}"
 SF_UI_PORT="${SF_UI_PORT:-3000}"
+TEI_PORT="${TEI_PORT:-8080}"
 
 SF_PROXY_URL="http://127.0.0.1:${SF_PROXY_PORT}"
 SF_SPA_URL="http://127.0.0.1:${SF_SPA_PORT}"
 SF_UI_URL="http://127.0.0.1:${SF_UI_PORT}"
+TEI_URL="http://127.0.0.1:${TEI_PORT}"
 
 # Archivos de Registro (Logs)
 LOG_PROXY="sf_proxy.log"
@@ -47,6 +49,14 @@ load_env_file() {
         set +a
         SF_PROXY_PORT="${SF_PORT:-8088}"
         SF_PROXY_URL="http://127.0.0.1:${SF_PROXY_PORT}"
+        if [ -n "$TEI_HTTP_URL" ]; then
+            TEI_URL="$TEI_HTTP_URL"
+            local extracted_port
+            extracted_port="$(echo "$TEI_HTTP_URL" | sed -E 's|.*:([0-9]+).*|\1|')"
+            if [[ "$extracted_port" =~ ^[0-9]+$ ]]; then
+                TEI_PORT="$extracted_port"
+            fi
+        fi
     fi
 }
 
@@ -443,6 +453,32 @@ probe_sf_ui() {
     fi
 }
 
+# 4. Embedder TEI bge-m3 (:8080)
+tei_container_running() {
+    docker ps --filter "name=sf-tei" --filter "status=running" -q 2>/dev/null | grep -q .
+}
+
+tei_health_ok() {
+    local code
+    code="$(curl -s -o /dev/null -w "%{http_code}" --max-time 2 "${TEI_URL}/health" 2>/dev/null || echo "000")"
+    [ "$code" = "200" ]
+}
+
+probe_tei() {
+    local running=0 health=0 port=0
+    tei_container_running && running=1
+    tei_health_ok && health=1
+    port_listening "$TEI_PORT" && port=1
+
+    if [ "$port" -eq 1 ] && [ "$health" -eq 1 ]; then
+        echo "healthy"
+    elif [ "$running" -eq 0 ] && [ "$health" -eq 0 ] && [ "$port" -eq 0 ]; then
+        echo "down"
+    else
+        echo "sick"
+    fi
+}
+
 describe_service_state() {
     local name="$1"
     local state="$2"
@@ -517,6 +553,16 @@ stop_all_services() {
         echo -e "  ${GREEN}✓ Frontend SPA :${SF_SPA_PORT} LIBERADO.${RESET}"
         echo -e "  ${GREEN}✓ Diagnostic Studio :${SF_UI_PORT} LIBERADO.${RESET}"
         echo -e "\n  ${GREEN}${BOLD}✅ Cero procesos zombies. Todos los puertos limpios.${RESET}"
+    fi
+
+    if [ "$(probe_tei)" != "down" ]; then
+        echo ""
+        read -p "¿Deseas detener también el contenedor TEI (bge-m3 en :${TEI_PORT})? [y/N]: " stop_tei_choice
+        if [[ "$stop_tei_choice" =~ ^[Yy]$ ]]; then
+            stop_tei_daemon
+        else
+            echo -e "  ${DIM}Contenedor TEI preservado en segundo plano.${RESET}"
+        fi
     fi
 
     read -p "Presiona Enter para regresar al menú..."
@@ -624,6 +670,47 @@ start_sf_ui_background() {
     wait_sf_ui_healthy
 }
 
+wait_tei_healthy() {
+    local i filled empty bar pct
+    local total=60
+    echo -e "  ${DIM}Esperando a que TEI bge-m3 responda en ${TEI_URL}/health…${RESET}"
+    for i in $(seq 1 "$total"); do
+        if tei_health_ok; then
+            bar="$(printf '█%.0s' $(seq 1 28))"
+            echo -ne "\r  [${GREEN}${bar}${RESET}]  ${BOLD}100%${RESET}  ${GREEN}${BOLD}EMBEDDER TEI BGE-M3 ACTIVO (:8080)${RESET}          \n"
+            return 0
+        fi
+        filled=$(( i * 28 / total ))
+        empty=$(( 28 - filled ))
+        pct=$(( i * 100 / total ))
+        bar="$(printf '█%.0s' $(seq 1 "$filled") 2>/dev/null)$(printf '░%.0s' $(seq 1 "$empty") 2>/dev/null)"
+        echo -ne "\r  [${CYAN}${bar}${RESET}]  ${pct}%  sondando ${TEI_URL}/health…   "
+        sleep 1
+    done
+    echo -e "\n  ${RED}${BOLD}TIEMPO AGOTADO${RESET} — TEI no respondió en :${TEI_PORT}."
+    return 1
+}
+
+start_tei_daemon() {
+    if ! command -v docker &> /dev/null; then
+        echo -e "  ${RED}❌ Docker no está instalado en PATH.${RESET}"
+        return 1
+    fi
+    if ! docker info >/dev/null 2>&1; then
+        echo -e "  ${RED}❌ El daemon de Docker no está en ejecución.${RESET}"
+        return 1
+    fi
+    echo -e "${BLUE}▶ Levantando contenedor TEI bge-m3 (docker compose)...${RESET}"
+    docker compose -f docker-compose.tei.yml up -d
+    wait_tei_healthy
+}
+
+stop_tei_daemon() {
+    echo -e "  ${YELLOW}▶ Deteniendo contenedor TEI bge-m3...${RESET}"
+    docker compose -f docker-compose.tei.yml down 2>/dev/null || true
+    echo -e "  ${GREEN}✓ Contenedor TEI detenido.${RESET}"
+}
+
 open_browser() {
     local url="$1"
     echo -e "${YELLOW}🌐 Abriendo navegador en ${url}...${RESET}"
@@ -672,6 +759,18 @@ deploy_full_stack() {
     fi
 
     ensure_lancedb_ready || return 1
+
+    if [ "$SF_EMBEDDER" = "http" ] || [ "$SF_EMBEDDER" = "grpc" ]; then
+        local tei_state
+        tei_state="$(probe_tei)"
+        if [ "$tei_state" != "healthy" ]; then
+            echo -e "\n${YELLOW}▶ SF_EMBEDDER='${SF_EMBEDDER}' requiere TEI activo en :${TEI_PORT}.${RESET}"
+            echo -e "  ${DIM}«El Vigía del mástil necesita el modelo neuronal bge-m3 para ver en la niebla.»${RESET}"
+            if ! start_tei_daemon; then
+                echo -e "${RED}⚠️ No se pudo iniciar TEI automáticamente. Continuando con el gateway...${RESET}"
+            fi
+        fi
+    fi
 
     echo -e "\n${CYAN}${BOLD}======================================================================${RESET}"
     echo -e "${CYAN}${BOLD}🚀 DESPLEGANDO STACK COMPLETO (GATEWAY + FRONTEND SPA)...${RESET}"
@@ -876,16 +975,34 @@ manage_lancedb_menu() {
     echo -e "  ${DIM}«La Segunda Prueba: Calibra centroides y bounds antes del bloqueo.»${RESET}\n"
 
     echo -e "  ${BOLD}1)${RESET} Auto-hidratar 55 Locks Canónicos (sf_bench::generate_canonical_locks)"
-    echo -e "  ${BOLD}2)${RESET} Ingestar Matriz Binaria f32 Personalizada (sf-ingest)"
-    echo -e "  ${BOLD}3)${RESET} Inspeccionar Estado Actual de data/sf-lancedb"
+    echo -e "  ${BOLD}2)${RESET} Calibrar Dominio 'python' con Embeddings Reales TEI (bge-m3)"
+    echo -e "  ${BOLD}3)${RESET} Ingestar Matriz Binaria f32 Personalizada (sf-ingest)"
+    echo -e "  ${BOLD}4)${RESET} Inspeccionar Estado Actual de data/sf-lancedb"
     echo -e "  ${BOLD}0)${RESET} Volver al menú"
-    read -p "Elige una opción [1-3, 0]: " ldb_opt
+    read -p "Elige una opción [1-4, 0]: " ldb_opt
 
     case "$ldb_opt" in
         1)
             hydrate_canonical_lancedb
             ;;
         2)
+            echo -e "\n${BLUE}▶ Calibrando dominio 'python' con TEI real (BAAI/bge-m3)...${RESET}"
+            local tei_state
+            tei_state="$(probe_tei)"
+            if [ "$tei_state" != "healthy" ]; then
+                echo -e "${YELLOW}▶ TEI (:8080) inactivo. Levantando contenedor Docker...${RESET}"
+                if ! start_tei_daemon; then
+                    echo -e "${RED}❌ TEI no está disponible para calibración.${RESET}"
+                    read -p "Presiona Enter..."
+                    return
+                fi
+            fi
+            cargo run -p sf-bench --bin calibrate_real_domain -- \
+                --domain-id "python" \
+                --tei-url "${TEI_URL}" \
+                --lancedb-uri "${LANCEDB_URI:-data/sf-lancedb}"
+            ;;
+        3)
             read -p "  Identificador de dominio (domain_id, ej: python, sql): " did
             [ -z "$did" ] && echo -e "${RED}Dominio requerido.${RESET}" && read -p "Enter..." && return
             read -p "  Ruta a matriz binaria f32 (little-endian rows*1024): " f32_path
@@ -899,7 +1016,7 @@ manage_lancedb_menu() {
                 --input-f32 "$f32_path" \
                 --lancedb-uri "${LANCEDB_URI:-data/sf-lancedb}"
             ;;
-        3)
+        4)
             echo -e "\n  ${BOLD}Estado de LanceDB (${LANCEDB_URI:-data/sf-lancedb}):${RESET}"
             if is_lancedb_hydrated; then
                 echo -e "  ${GREEN}✓ Tabla 'domain_hypercubes' presente y poblada.${RESET}"
@@ -1006,19 +1123,21 @@ manage_environment() {
             echo -e "    ${CYAN}${line}${RESET}"
         done
         echo ""
-        echo -e "  ${DIM}1) Alternar SF_EMBEDDER entre 'mock', 'grpc' y 'http'${RESET}"
-        echo -e "  ${DIM}2) Abrir .env con el editor predeterminado${RESET}"
-        read -p "  Selecciona opción [1-2, o Enter para volver]: " eopt
+        echo -e "  ${DIM}1) Alternar SF_EMBEDDER entre 'mock', 'http' y 'grpc'${RESET}"
+        echo -e "  ${DIM}2) Iniciar Contenedor TEI (BAAI/bge-m3 en :${TEI_PORT})${RESET}"
+        echo -e "  ${DIM}3) Detener Contenedor TEI${RESET}"
+        echo -e "  ${DIM}4) Abrir .env con el editor predeterminado${RESET}"
+        read -p "  Selecciona opción [1-4, o Enter para volver]: " eopt
         case "$eopt" in
             1)
                 local cur_emb
                 cur_emb="$(grep -E '^SF_EMBEDDER=' .env | cut -d= -f2-)"
                 if [ "$cur_emb" = "mock" ]; then
-                    sed -i '' 's/^SF_EMBEDDER=.*/SF_EMBEDDER=grpc/' .env 2>/dev/null || sed -i 's/^SF_EMBEDDER=.*/SF_EMBEDDER=grpc/' .env
-                    echo -e "  ${GREEN}✓ SF_EMBEDDER configurado a 'grpc'.${RESET}"
-                elif [ "$cur_emb" = "grpc" ]; then
                     sed -i '' 's/^SF_EMBEDDER=.*/SF_EMBEDDER=http/' .env 2>/dev/null || sed -i 's/^SF_EMBEDDER=.*/SF_EMBEDDER=http/' .env
                     echo -e "  ${GREEN}✓ SF_EMBEDDER configurado a 'http'.${RESET}"
+                elif [ "$cur_emb" = "http" ]; then
+                    sed -i '' 's/^SF_EMBEDDER=.*/SF_EMBEDDER=grpc/' .env 2>/dev/null || sed -i 's/^SF_EMBEDDER=.*/SF_EMBEDDER=grpc/' .env
+                    echo -e "  ${GREEN}✓ SF_EMBEDDER configurado a 'grpc'.${RESET}"
                 else
                     sed -i '' 's/^SF_EMBEDDER=.*/SF_EMBEDDER=mock/' .env 2>/dev/null || sed -i 's/^SF_EMBEDDER=.*/SF_EMBEDDER=mock/' .env
                     echo -e "  ${GREEN}✓ SF_EMBEDDER configurado a 'mock'.${RESET}"
@@ -1026,6 +1145,12 @@ manage_environment() {
                 load_env_file
                 ;;
             2)
+                start_tei_daemon
+                ;;
+            3)
+                stop_tei_daemon
+                ;;
+            4)
                 ${EDITOR:-nano} .env
                 load_env_file
                 ;;
@@ -1173,10 +1298,11 @@ show_webgui_guide() {
 show_menu() {
     clear
     load_env_file
-    local proxy_state spa_state ui_state
+    local proxy_state spa_state ui_state tei_state
     proxy_state="$(probe_sf_proxy)"
     spa_state="$(probe_sf_spa)"
     ui_state="$(probe_sf_ui)"
+    tei_state="$(probe_tei)"
 
     echo -e "${CYAN}${BOLD}╔══════════════════════════════════════════════════════════════════════╗${RESET}"
     echo -e "${CYAN}${BOLD}║${RESET}   ${BOLD}🐒 THREE-HEADED SEMANTIC FIREWALL — CONTROL PANEL (sf-core) 🐒${RESET}    ${CYAN}${BOLD}║${RESET}"
@@ -1187,6 +1313,7 @@ show_menu() {
     echo -e "   • Gateway sf-proxy (:8088):       $(render_state_badge "$proxy_state")"
     echo -e "   • Frontend SPA (:5173):           $(render_state_badge "$spa_state")"
     echo -e "   • Diagnostic Studio (:3000):      $(render_state_badge "$ui_state")"
+    echo -e "   • Embedder TEI bge-m3 (:8080):    $(render_state_badge "$tei_state") [mode: ${SF_EMBEDDER:-mock}]"
 
     echo -e "${CYAN}${BOLD}──────────────────────────────────────────────────────────────────────${RESET}"
     echo -e " ${GREEN}${BOLD}1. 🚀 Desplegar Stack Completo${RESET} ${DIM}(Gateway :8088 + SPA :5173 + Auto-seed LanceDB)${RESET}"
@@ -1195,11 +1322,11 @@ show_menu() {
     echo -e " ${BLUE}4.${RESET} ${BOLD}Quality Gates & Linters Estrictos${RESET} ${DIM}(cargo clippy/fmt + frontend tsc/oxlint)${RESET}"
     echo -e " ${MAGENTA}5.${RESET} ${BOLD}Evaluar Ataques Rompepepe 220${RESET} ${DIM}(sf-bench rompepepe_eval → reports/)${RESET}"
     echo -e " ${MAGENTA}6.${RESET} ${BOLD}Benchmark de Carga & SLA 1000 RPS${RESET} ${DIM}(sf-bench load_benchmark · p99 < 2ms)${RESET}"
-    echo -e " ${YELLOW}7.${RESET} ${BOLD}Gestión de LanceDB & Catálogo${RESET} ${DIM}(Auto-hidratar 55 locks canónicos / sf-ingest)${RESET}"
+    echo -e " ${YELLOW}7.${RESET} ${BOLD}Gestión de LanceDB & Catálogo${RESET} ${DIM}(Auto-hidratar 55 locks canónicos / calibrar TEI / sf-ingest)${RESET}"
     echo -e " ${YELLOW}8.${RESET} ${BOLD}Limpiar Artefactos de Compilación${RESET} ${DIM}(cargo clean, cache vite, logs y temporales)${RESET}"
     echo -e " ${CYAN}9.${RESET} ${BOLD}Ver Logs en Vivo${RESET} ${DIM}(Monitor unificado o individual con resaltado de color)${RESET}"
-    echo -e " ${RED}10.${RESET} ${BOLD}Detener Todos los Servicios${RESET} ${DIM}(Cierre limpio de :8088, :5173 y :3000 sin zombies)${RESET}"
-    echo -e " ${MAGENTA}11.${RESET} ${BOLD}Configuración del Entorno${RESET} ${DIM}(.env · embedder mock/grpc · URLs upstream)${RESET}"
+    echo -e " ${RED}10.${RESET} ${BOLD}Detener Todos los Servicios${RESET} ${DIM}(Cierre limpio de :8088, :5173, :3000 y TEI sin zombies)${RESET}"
+    echo -e " ${MAGENTA}11.${RESET} ${BOLD}Configuración del Entorno & TEI${RESET} ${DIM}(.env · embedder mock/http/grpc · TEI daemon)${RESET}"
     echo -e " ${CYAN}12.${RESET} ${BOLD}Volcar Contexto y Código para Auditoría / LLM${RESET} ${DIM}(genera 3hm-context.txt)${RESET}"
     echo -e " ${GREEN}13.${RESET} ${BOLD}Guía Interactiva de Pruebas WebGUI${RESET} ${DIM}(Pasos guiados: PASS, Rayos X L1/L2/L3 y Overrides)${RESET}"
     echo -e " ${DIM}0. Salir (mantener servicios activos en background)${RESET}"

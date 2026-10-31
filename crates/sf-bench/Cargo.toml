@@ -34,3 +34,7 @@ path = "src/bin/load_benchmark.rs"
 [[bin]]
 name = "seed_canonical_locks"
 path = "src/bin/seed_canonical_locks.rs"
+
+[[bin]]
+name = "calibrate_real_domain"
+path = "src/bin/calibrate_real_domain.rs"

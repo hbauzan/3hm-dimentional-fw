@@ -33,6 +33,29 @@ pnpm dev
 
 Open `http://127.0.0.1:5173`. The default gateway is `http://127.0.0.1:8088`. An empty `SF_CORS_ORIGIN` allows that origin. A fresh session sends `domain_id` and leaves the lock thresholds alone. Checking **Apply overrides**, or moving a slider, clones `l1_threshold`, `l2_threshold`, `quorum_k`, and `epsilon` for the next request. `provider: mock` ignores base URL and API key.
 
+## Real TEI Embedder (BAAI/bge-m3)
+
+To exit the mock embedder and evaluate live text prompts against real 1024-dimensional embeddings:
+
+1. Launch Text Embeddings Inference (TEI) via Docker Compose:
+   ```bash
+   docker compose -f docker-compose.tei.yml up -d
+   ```
+2. Configure `.env`:
+   ```bash
+   SF_EMBEDDER=http
+   TEI_HTTP_URL=http://127.0.0.1:8080
+   SF_DEFAULT_DOMAIN=python
+   ```
+3. Calibrate domain locks with real embeddings into LanceDB:
+   ```bash
+   cargo run -p sf-bench --bin calibrate_real_domain
+   ```
+4. Or use the orchestrator `./setup.sh`:
+   - **Option 1**: Automatically probes and starts TEI if `SF_EMBEDDER` is `http`/`grpc`.
+   - **Option 7 -> 2**: Calibrates the `python` domain lock using live TEI embeddings.
+   - **Option 11**: Quick toggle between `mock`, `http` and `grpc` embedders, and start/stop controls for TEI.
+
 ## Architecture & Roadmap
 
 - [Deterministic AI Engineering Roadmap](roadmap/deterministic-ai-roadmap.md)

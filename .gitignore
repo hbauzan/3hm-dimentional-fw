@@ -1,5 +1,6 @@
 # Build artifacts
 /target/
+.cargo/
 **/*.rs.bk
 *.orig
 *.profraw

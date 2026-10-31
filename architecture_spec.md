@@ -60,3 +60,5 @@ The upstream body is OpenAI chat-completions JSON (`model`, `messages`, `stream:
 The `sf-proxy` binary loads a LanceDB registry and serves both ingress routes on `SF_HOST`:`SF_PORT` (default `127.0.0.1:8088`). `POST /v1/chat/completions` still returns `BreachErrorEnvelope`. `POST /api/v1/chat` returns `ChatBreachDto` or an unbuffered `text/event-stream`. The two JSON shapes stay distinct.
 
 `SF_CORS_ORIGIN` sets `Access-Control-Allow-Origin`. An empty value or `*` allows any origin. Chat overrides clone the **DomainHypercubeLock** for that request. A registry write happens only through an explicit LanceDB reload.
+
+The playground in `frontend/` is a separate origin. It posts to `/api/v1/chat` on this daemon and reads `ChatBreachDto` or the unbuffered event stream. The dev server does not proxy that call. API keys stay in browser `localStorage`.

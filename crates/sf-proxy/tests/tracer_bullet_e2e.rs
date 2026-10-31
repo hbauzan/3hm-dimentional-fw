@@ -49,6 +49,7 @@ fn app() -> axum::Router {
             breach_vector: AlignedVec1024::zeros(),
         }),
         upstream: Arc::new(MockUpstreamForwarder),
+        mock_upstream: Arc::new(MockUpstreamForwarder),
         default_domain: "python".to_string(),
         max_telemetry_coords: 4,
     });

@@ -138,6 +138,7 @@ async fn main() {
         registry: Arc::new(registry),
         embedder,
         upstream: Arc::new(ReqwestChatForwarder::new(upstream_base)),
+        mock_upstream: Arc::new(sf_proxy::MockUpstreamForwarder),
         default_domain,
         max_telemetry_coords,
     });

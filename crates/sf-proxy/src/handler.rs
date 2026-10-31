@@ -20,6 +20,7 @@ pub struct ProxyAppState {
     pub registry: Arc<HotRegistry>,
     pub embedder: Arc<dyn BatchEmbedderClient>,
     pub upstream: Arc<dyn UpstreamLlmForwarder>,
+    pub mock_upstream: Arc<dyn UpstreamLlmForwarder>,
     pub default_domain: String,
     pub max_telemetry_coords: usize,
 }

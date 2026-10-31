@@ -448,7 +448,7 @@ pub async fn handle_api_v1_chat(
     let forwarded = match upstream {
         ChatUpstream::Mock { .. } => {
             state
-                .upstream
+                .mock_upstream
                 .forward_chat_completion(&HeaderMap::new(), bytes)
                 .await
         }

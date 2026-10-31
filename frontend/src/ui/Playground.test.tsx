@@ -217,4 +217,54 @@ describe('Playground', () => {
     }
     expect(body.overrides.l1_threshold).toBe(1)
   })
+
+  it('loads .env keys when requested and sends use_env on chat requests', async () => {
+    const user = userEvent.setup()
+    const store = memorySessionStore()
+    const catalogResponse = {
+      use_env_available: true,
+      providers: {
+        gemini: {
+          provider: 'gemini',
+          configured: true,
+          api_key: 'AQ.from_env_gemini',
+          base_url: 'https://generativelanguage.googleapis.com/v1beta/openai',
+          model: 'gemini-3.8-flash',
+          env_key_found: 'GEMINI_API_KEY',
+        },
+      },
+    }
+
+    const sentRequests: { url: string; body: unknown }[] = []
+    const fetchImpl: typeof fetch = async (input, init) => {
+      const url = String(input)
+      if (url.endsWith('/api/v1/upstream/env')) {
+        return jsonResponse(200, catalogResponse)
+      }
+      sentRequests.push({ url, body: JSON.parse(String(init?.body)) })
+      return sseResponse([delta('hola desde gemini'), 'data: [DONE]\n\n'])
+    }
+
+    render(<Playground fetchImpl={fetchImpl} store={store} />)
+
+    await user.selectOptions(screen.getByRole('combobox', { name: 'Provider' }), 'gemini')
+    expect(fieldValue(screen.getByRole('textbox', { name: 'Model' }))).toBe('gemini-3.8-flash')
+
+    await user.click(screen.getByRole('button', { name: 'Cargar de .env' }))
+    expect(await screen.findByText(/✓ Clave cargada de .env \(GEMINI_API_KEY\)/)).toBeTruthy()
+    expect(fieldValue(screen.getByLabelText('API key'))).toBe('AQ.from_env_gemini')
+
+    await user.type(screen.getByRole('textbox', { name: 'Prompt' }), 'hola')
+    await user.click(screen.getByRole('button', { name: 'Send' }))
+    expect(await screen.findByText('hola desde gemini')).toBeTruthy()
+
+    const body = sentRequests[0]?.body as {
+      upstream: { provider: string; api_key?: string; model?: string; use_env?: boolean }
+    }
+    expect(body.upstream.provider).toBe('gemini')
+    expect(body.upstream.api_key).toBe('AQ.from_env_gemini')
+    expect(body.upstream.model).toBe('gemini-3.8-flash')
+    expect(body.upstream.use_env).toBe(true)
+  })
 })
+

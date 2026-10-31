@@ -3,7 +3,7 @@ import { resolveChatEndpoint } from '../domain/endpoint.ts'
 import { isRecord } from '../domain/json.ts'
 import { hasUserText } from '../domain/request.ts'
 import { createSseDecoder } from '../domain/sse.ts'
-import type { ChatOutcome, ChatRequest } from '../domain/types.ts'
+import type { ChatOutcome, ChatRequest, UpstreamEnvCatalogDto } from '../domain/types.ts'
 
 export interface PostChatArgs {
   gatewayBase: string
@@ -98,3 +98,19 @@ function explain(payload: unknown): string {
   if (payload === null) return 'empty error body'
   return JSON.stringify(payload)
 }
+
+export async function fetchUpstreamEnvCatalog(
+  gatewayBase: string,
+  fetchImpl?: typeof fetch,
+): Promise<UpstreamEnvCatalogDto | null> {
+  const fetchFn = fetchImpl ?? globalThis.fetch
+  const url = `${gatewayBase.trim().replace(/\/+$/, '')}/api/v1/upstream/env`
+  try {
+    const res = await fetchFn(url)
+    if (!res.ok) return null
+    return (await res.json()) as UpstreamEnvCatalogDto
+  } catch {
+    return null
+  }
+}
+

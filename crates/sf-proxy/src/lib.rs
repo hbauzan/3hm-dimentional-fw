@@ -4,6 +4,7 @@ mod cascade;
 mod chat_api;
 mod cors;
 mod embedder;
+mod env_config;
 mod handler;
 mod normalize;
 mod routing;
@@ -21,9 +22,17 @@ pub use chat_api::{
 };
 pub use cors::CorsAllow;
 pub use embedder::{BatchEmbedderClient, MockBatchEmbedder};
-pub use handler::{handle_v1_chat_completions, router, router_with_cors, ProxyAppState};
+pub use env_config::{
+    find_env_file, get_all_providers_env, get_provider_env, load_dotenv, parse_env_content,
+    read_env_file_map, ProviderEnvInfo, UpstreamEnvCatalog,
+};
+pub use handler::{
+    handle_api_v1_upstream_env, handle_v1_chat_completions, router, router_with_cors,
+    ProxyAppState,
+};
 pub use normalize::validate_and_normalize_f32_slice;
 pub use segmenter::segment_prompt_clauses;
 pub use tei::{embed_request, TeiGrpcEmbedder, TeiHttpEmbedder};
 pub use telemetry::BreachErrorEnvelope;
 pub use upstream::{MockUpstreamForwarder, ReqwestChatForwarder, UpstreamLlmForwarder};
+

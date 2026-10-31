@@ -58,7 +58,7 @@ Invocada así, el agente corre el **ciclo estándar** end-to-end por su cuenta, 
 5. **Auto-verificar**: corré tests / linters / builds localmente con el toolchain canónico del proyecto y confirmá que realmente funciona. Dejalo en verde antes de involucrar al usuario.
 6. **Sync docs**: sincronizá **solo** los assets que el cambio afecta ([documentation.md](./documentation.md)). Un micro-fix que no toca contratos no abre el glosario ni el spec.
 7. **Hand off — APPROVAL GATE**: reportá qué cambió y cómo se verificó, decile al usuario exactamente cómo probarlo, y **ESPERÁ**. Si `gh` está autenticado y no hay rama protegida que fuerce PR, proponé en este reporte si integrar vía direct merge o vía `gh pr create` para que el OK del usuario decida. No hagas push ni merge todavía.
-8. **Con el "OK" explícito del usuario**: corré la entrega según [git-workflow.md](./git-workflow.md) §3 — commit, push de la rama de trabajo, y después merge directo a la base **o** `gh pr create` según lo acordado o si la base está protegida/el repo exige PRs. No empujes a una base protegida.
+8. **Con el "OK" explícito del usuario**: corré la entrega según [git-workflow.md](./git-workflow.md) §3 — commit (**autor/colaborador exclusivo `hbauzan`**, sin co-autores ni bots de IA), push de la rama de trabajo, y después merge directo a la base **o** `gh pr create` según lo acordado o si la base está protegida/el repo exige PRs. No empujes a una base protegida.
 9. **Pará y preguntá si se complica**: si algo del paso 8 no es trivial (conflicto de merge, hook/CI rojo, rama divergida, push a la base rechazado y sin poder abrir el PR, scope ambiguo), **DETENTE y preguntá** ([git-workflow.md](./git-workflow.md) §3.3). Una base protegida con `gh` disponible no es una complicación: es el PR path.
 
 ***
@@ -119,6 +119,10 @@ Aplican a cualquier código que interactúe con modelos de inferencia o LLMs (lo
 - **Determinismo en tests**: los tests jamás deben golpear endpoints vivos por default. Mockeá/stubeá el módulo de proveedor, o fijá `temperature=0` y seeds deterministas contra fixtures grabados.
 - **Latencia, memoria y costo observables**: logeá p50/p99, huella RSS y conteo de tokens de forma estructurada para detectar regresiones tempranas.
 - **Concurrencia no bloqueante y validación en frontera**: en escenarios de alta concurrencia o streaming, usá clientes asíncronos para no bloquear el scheduler/event loop. Toda salida estructurada debe validarse en la frontera antes de construir tipos de dominio.
+
+## 3.3. AUTORÍA Y COLABORACIÓN EXCLUSIVA (INVARIANTE INNEGOCIABLE)
+- **Autor y Colaborador Único y Exclusivo**: El único autor, titular de propiedad intelectual y colaborador legítimo en este y cualquier commit del repositorio es **hbauzan** (`Héctor Andrés Bauzán Saavedra` / `hbauzan@gmail.com`).
+- **Prohibición Terminante de Otros Colaboradores o Bots**: Está **ESTRICTAMENTE PROHIBIDO** atribuir autoría o co-autoría a bots, herramientas de IA o agentes de cualquier índole (incluyendo `Cursor`, `cursoragent`, `Claude`, `Gemini`, `ChatGPT`, `Copilot`, etc.), así como añadir cualquier trailer `Co-authored-by:` o colaborador adicional que no sea explícita y únicamente `hbauzan`. NUNCA, BAJO NINGUNA CIRCUNSTANCIA, agregar otro colaborador más que `hbauzan`.
 
 # 4. Higiene de contexto
 

@@ -47,7 +47,7 @@ The agent **owns the git lifecycle** — branch, stage, commit, and (after appro
 Default sequence once the user approves:
 1. `git checkout -b <type>/<short-name>` — if not already on a dedicated task branch.
 2. Stage **only files relevant to the task**. Leave unrelated untracked/modified files alone; if scope is unclear, ask (see §3.3).
-3. `git commit` using the metadata format from §1. Add a `Co-Authored-By:` trailer only when the user or the repo's existing commits already use one; copy that identity. Never invent a name or an email.
+3. `git commit` using the metadata format from §1. **AUTORÍA EXCLUSIVA (INVARIANTE INNEGOCIABLE)**: El único autor, titular y colaborador permitido en este y cualquier commit es exclusivamente **hbauzan** (`Héctor Andrés Bauzán Saavedra` / `hbauzan@gmail.com`). Está **TERMINANTEMENTE PROHIBIDO** añadir trailers `Co-authored-by:`, bots o agentes de IA (`cursoragent`, `Cursor`, `claude`, `copilot`, `gemini`, etc.) o cualquier otro colaborador adicional. NUNCA, BAJO NINGUNA CIRCUNSTANCIA, agregar otro colaborador más que `hbauzan`.
 4. `git push -u origin <branch>`.
 5. Integrate. Pick the path **before** touching the base:
    - **PR path** when the user asked for a PR, the base branch is protected, or the repo documents a PR workflow (CONTRIBUTING, pull-request template, branch protection). Run `gh pr create` and stop. Do not merge and do not `git push origin <base>`. Merging the PR needs its own explicit OK, unless the approval already included the merge.

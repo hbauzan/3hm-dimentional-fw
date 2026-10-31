@@ -1,5 +1,7 @@
-//! `POST /v1/chat/completions` skeleton.
+//! Ingress routes for the gateway daemon.
 
+use crate::chat_api::handle_api_v1_chat;
+use crate::cors::CorsAllow;
 use crate::embedder::BatchEmbedderClient;
 use crate::routing::{evaluate_route, RouteFailure, RouteInput};
 use crate::segmenter::segment_prompt_clauses;
@@ -34,11 +36,17 @@ struct OpenAiMessage {
 }
 
 pub fn router(state: Arc<ProxyAppState>) -> axum::Router {
+    router_with_cors(state, CorsAllow::Any)
+}
+
+pub fn router_with_cors(state: Arc<ProxyAppState>, cors: CorsAllow) -> axum::Router {
     axum::Router::new()
         .route(
             "/v1/chat/completions",
             axum::routing::post(handle_v1_chat_completions),
         )
+        .route("/api/v1/chat", axum::routing::post(handle_api_v1_chat))
+        .layer(cors.layer())
         .with_state(state)
 }
 

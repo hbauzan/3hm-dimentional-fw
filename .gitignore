@@ -56,3 +56,4 @@ data/
 # Frontend SPA package boundary. Cargo workspace members stay free of node artifacts.
 /frontend/node_modules/
 /frontend/dist/
+.pnpm-store/

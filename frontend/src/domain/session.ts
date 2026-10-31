@@ -11,6 +11,8 @@ const QUORUM = 'sf.spa.quorumK'
 const EPSILON = 'sf.spa.epsilon'
 const PROVIDER = 'sf.spa.provider'
 
+const USE_ENV = 'sf.spa.useEnv'
+
 export interface SessionStore {
   getItem(key: string): string | null
   setItem(key: string, value: string): void
@@ -80,11 +82,13 @@ export function loadProviderUpstream(
   store: SessionStore,
 ): UpstreamSelection {
   const defaults = PROVIDER_DEFAULTS[provider]
+  const useEnv = store.getItem(USE_ENV) === '1'
   return {
     provider,
     baseUrl: store.getItem(baseUrlKey(provider)) ?? defaults.baseUrl,
     model: store.getItem(modelKey(provider)) ?? defaults.model,
     apiKey: store.getItem(apiKeyStorageKey(provider)) ?? '',
+    useEnv,
   }
 }
 
@@ -116,6 +120,7 @@ export function saveSession(store: SessionStore, session: SpaSession): void {
   store.setItem(QUORUM, String(session.overrides.quorum_k))
   store.setItem(EPSILON, String(session.overrides.epsilon))
   store.setItem(PROVIDER, session.upstream.provider)
+  store.setItem(USE_ENV, session.upstream.useEnv ? '1' : '0')
   store.setItem(baseUrlKey(session.upstream.provider), session.upstream.baseUrl)
   store.setItem(modelKey(session.upstream.provider), session.upstream.model)
   const secretKey = apiKeyStorageKey(session.upstream.provider)

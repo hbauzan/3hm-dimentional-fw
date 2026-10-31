@@ -46,8 +46,17 @@ pub fn router_with_cors(state: Arc<ProxyAppState>, cors: CorsAllow) -> axum::Rou
             axum::routing::post(handle_v1_chat_completions),
         )
         .route("/api/v1/chat", axum::routing::post(handle_api_v1_chat))
+        .route(
+            "/api/v1/upstream/env",
+            axum::routing::get(handle_api_v1_upstream_env),
+        )
         .layer(cors.layer())
         .with_state(state)
+}
+
+pub async fn handle_api_v1_upstream_env() -> Response {
+    let catalog = crate::env_config::get_all_providers_env();
+    (StatusCode::OK, axum::Json(catalog)).into_response()
 }
 
 pub async fn handle_v1_chat_completions(

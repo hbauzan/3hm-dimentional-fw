@@ -3,6 +3,9 @@
 ## Unreleased
 
 - Decoupled playground in `frontend/`: the browser calls `POST /api/v1/chat` on `sf-proxy`, renders upstream SSE on PASS, and draws the Rayos X card from `ChatBreachDto` on HTTP 403. Live overrides and the upstream selector stay in the page. API keys stay in `localStorage`.
+- Upstream credentials from `.env`: `sf-proxy` serves `GET /api/v1/upstream/env` resolving environment variables and `.env` files for Gemini (`GEMINI_API_KEY`, `GOOGLE_API_KEY`), DeepSeek, OpenAI, Groq, and Ollama.
+- UI `.env` integration: `Playground` in `frontend/` and embedded studio in `sf-ui` include an "Usar keys de .env" toggle and "Cargar de .env" sync button, showing live detection status and automatically forwarding credentials to upstream.
+- Provider defaults: default Gemini model upgraded to `gemini-3.8-flash`, added presets for Groq (`llama-3.3-70b-versatile`) and Ollama (`llama3`).
 - `sf-proxy` daemon serves `POST /v1/chat/completions` and `POST /api/v1/chat` on one process. `SF_CORS_ORIGIN` selects the browser origin; an empty value allows `*`.
 - `/api/v1/chat` on the daemon emits `ChatBreachDto` and streams upstream SSE without buffering. `/v1/chat/completions` still emits `BreachErrorEnvelope`. Request overrides stay ephemeral.
 

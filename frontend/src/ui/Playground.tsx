@@ -11,8 +11,14 @@ import {
   saveSession,
   type SessionStore,
 } from '../domain/session.ts'
-import { UPSTREAM_PROVIDERS, type ChatBreachDto, type ChatMessage, type SpaSession } from '../domain/types.ts'
-import { postChat } from '../gateway/client.ts'
+import {
+  UPSTREAM_PROVIDERS,
+  type ChatBreachDto,
+  type ChatMessage,
+  type SpaSession,
+  type UpstreamProvider,
+} from '../domain/types.ts'
+import { fetchUpstreamEnvCatalog, postChat } from '../gateway/client.ts'
 import { BreachCard } from './BreachCard.tsx'
 
 const browserStore = browserSessionStore()
@@ -37,8 +43,48 @@ export function Playground({
   const [draft, setDraft] = useState('')
   const [turns, setTurns] = useState<Turn[]>([])
   const [busy, setBusy] = useState(false)
+  const [envLoading, setEnvLoading] = useState(false)
+  const [envMessage, setEnvMessage] = useState<string | null>(null)
   const ids = useRef(0)
   const endpoint = resolveChatEndpoint(session.gatewayBase)
+
+  async function syncEnv(targetProvider: UpstreamProvider = session.upstream.provider) {
+    setEnvLoading(true)
+    setEnvMessage(null)
+    try {
+      const catalog = await fetchUpstreamEnvCatalog(session.gatewayBase, fetchImpl)
+      if (catalog?.providers && catalog.providers[targetProvider]) {
+        const info = catalog.providers[targetProvider]
+        if (info.configured && info.api_key) {
+          commit((current) => ({
+            ...current,
+            upstream: {
+              ...current.upstream,
+              useEnv: true,
+              apiKey: info.api_key,
+              baseUrl: info.base_url || current.upstream.baseUrl,
+              model: info.model || current.upstream.model,
+            },
+          }))
+          setEnvMessage(`✓ Clave cargada de .env (${info.env_key_found ?? 'detectada'})`)
+        } else if (info.configured && targetProvider === 'mock') {
+          commit((current) => ({
+            ...current,
+            upstream: { ...current.upstream, useEnv: true },
+          }))
+          setEnvMessage('✓ Mock no requiere API key')
+        } else {
+          setEnvMessage(`⚠️ Sin clave en .env para ${targetProvider}`)
+        }
+      } else {
+        setEnvMessage('⚠️ Gateway no devolvió configuración de .env')
+      }
+    } catch {
+      setEnvMessage('⚠️ Error conectando al gateway')
+    } finally {
+      setEnvLoading(false)
+    }
+  }
 
   function nextId(): string {
     ids.current += 1
@@ -234,6 +280,49 @@ export function Playground({
             onChange={(value) => tune({ epsilon: clampFloat(value, 0, 0.5, 3, 0) })}
           />
           <h2 className="text-[11px] tracking-wide text-studio-muted">Upstream</h2>
+          <div className="flex flex-col gap-2 border border-studio-line bg-studio-panel/50 p-2">
+            <div className="flex items-center justify-between">
+              <label className="flex items-center gap-2 cursor-pointer text-[11px] uppercase tracking-wide text-studio-muted hover:text-studio-text">
+                <input
+                  type="checkbox"
+                  aria-label="Usar keys de .env"
+                  checked={session.upstream.useEnv}
+                  onChange={(event) => {
+                    const active = event.target.checked
+                    commit((current) => ({
+                      ...current,
+                      upstream: { ...current.upstream, useEnv: active },
+                    }))
+                    if (active) {
+                      void syncEnv(session.upstream.provider)
+                    } else {
+                      setEnvMessage(null)
+                    }
+                  }}
+                />
+                <span>Usar keys de .env</span>
+              </label>
+              <button
+                type="button"
+                disabled={envLoading}
+                aria-label="Cargar de .env"
+                className="border border-studio-line px-2 py-0.5 text-[10px] text-studio-muted hover:border-studio-accent hover:text-studio-text disabled:opacity-50"
+                onClick={() => void syncEnv(session.upstream.provider)}
+              >
+                {envLoading ? 'Leyendo…' : '🔄 Cargar de .env'}
+              </button>
+            </div>
+            {envMessage ? (
+              <p
+                role="status"
+                className={`text-[10px] font-mono ${
+                  envMessage.startsWith('✓') ? 'text-emerald-400' : 'text-amber-400'
+                }`}
+              >
+                {envMessage}
+              </p>
+            ) : null}
+          </div>
           <div className="flex flex-col gap-1 text-[11px] uppercase tracking-wide text-studio-muted">
             <label htmlFor="upstream-provider">Provider</label>
             <select
@@ -245,6 +334,9 @@ export function Playground({
                 if (!isUpstreamProvider(provider)) return
                 const upstream = loadProviderUpstream(provider, store)
                 commit((current) => ({ ...current, upstream }))
+                if (session.upstream.useEnv) {
+                  void syncEnv(provider)
+                }
               }}
             >
               {UPSTREAM_PROVIDERS.map((provider) => (

@@ -2,12 +2,14 @@ import { UPSTREAM_PROVIDERS, type UpstreamProvider } from './types.ts'
 
 export const PROVIDER_DEFAULTS: Record<UpstreamProvider, { baseUrl: string; model: string }> = {
   mock: { baseUrl: '', model: 'mock' },
-  deepseek: { baseUrl: 'https://api.deepseek.com/v1', model: 'deepseek-chat' },
-  openai: { baseUrl: 'https://api.openai.com/v1', model: 'gpt-4o-mini' },
   gemini: {
     baseUrl: 'https://generativelanguage.googleapis.com/v1beta/openai',
-    model: 'gemini-2.0-flash',
+    model: 'gemini-3.8-flash',
   },
+  openai: { baseUrl: 'https://api.openai.com/v1', model: 'gpt-4o-mini' },
+  deepseek: { baseUrl: 'https://api.deepseek.com/v1', model: 'deepseek-chat' },
+  groq: { baseUrl: 'https://api.groq.com/openai/v1', model: 'llama-3.3-70b-versatile' },
+  ollama: { baseUrl: 'http://127.0.0.1:11434/v1', model: 'llama3' },
 }
 
 export const PROMPT_PRESETS = [

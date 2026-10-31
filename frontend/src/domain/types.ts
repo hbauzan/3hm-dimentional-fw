@@ -20,7 +20,14 @@ export interface ChatOverrides {
   epsilon: number
 }
 
-export const UPSTREAM_PROVIDERS = ['mock', 'deepseek', 'openai', 'gemini'] as const
+export const UPSTREAM_PROVIDERS = [
+  'mock',
+  'gemini',
+  'openai',
+  'deepseek',
+  'groq',
+  'ollama',
+] as const
 
 export type UpstreamProvider = (typeof UPSTREAM_PROVIDERS)[number]
 
@@ -29,6 +36,7 @@ export interface UpstreamSelection {
   baseUrl: string
   model: string
   apiKey: string
+  useEnv?: boolean
 }
 
 export interface ChatUpstreamBody {
@@ -36,6 +44,21 @@ export interface ChatUpstreamBody {
   model?: string
   base_url?: string
   api_key?: string
+  use_env?: boolean
+}
+
+export interface ProviderEnvDto {
+  provider: string
+  configured: boolean
+  api_key: string
+  base_url: string
+  model: string
+  env_key_found?: string | null
+}
+
+export interface UpstreamEnvCatalogDto {
+  use_env_available: boolean
+  providers: Record<string, ProviderEnvDto>
 }
 
 export interface ChatRequest {

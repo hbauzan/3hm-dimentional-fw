@@ -64,6 +64,7 @@ fn die(message: impl std::fmt::Display) -> ! {
 
 #[tokio::main]
 async fn main() {
+    sf_proxy::load_dotenv();
     let args = Args::parse();
     let host = env_nonempty("SF_HOST").unwrap_or_else(|| "127.0.0.1".to_string());
     let port = env_nonempty("SF_PORT").unwrap_or_else(|| "8088".to_string());

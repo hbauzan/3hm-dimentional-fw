@@ -37,5 +37,6 @@ function upstreamBody(selection: UpstreamSelection): ChatUpstreamBody {
   if (model) body.model = model
   if (baseUrl) body.base_url = baseUrl
   if (apiKey) body.api_key = apiKey
+  if (selection.useEnv) body.use_env = true
   return body
 }

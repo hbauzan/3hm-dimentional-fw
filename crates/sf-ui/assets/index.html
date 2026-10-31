@@ -962,10 +962,16 @@
         <label for="selectProvider">Provider</label>
         <select id="selectProvider">
           <option value="mock" selected>mock</option>
-          <option value="deepseek">deepseek</option>
-          <option value="openai">openai</option>
           <option value="gemini">gemini</option>
+          <option value="openai">openai</option>
+          <option value="deepseek">deepseek</option>
+          <option value="groq">groq</option>
+          <option value="ollama">ollama</option>
         </select>
+        <label class="tune-row" style="margin-top: 6px; cursor: pointer; display: flex; align-items: center; gap: 6px;">
+          <input type="checkbox" id="chkUseEnv" checked />
+          <span>Usar keys de .env</span>
+        </label>
         <label for="inputBaseUrl">Base URL</label>
         <input id="inputBaseUrl" type="text" value="" spellcheck="false" autocomplete="off" />
         <label for="inputModel">Model</label>
@@ -1307,12 +1313,14 @@
 
     const PROVIDER_DEFAULTS = {
       mock: { baseUrl: '', model: 'mock' },
-      deepseek: { baseUrl: 'https://api.deepseek.com/v1', model: 'deepseek-chat' },
-      openai: { baseUrl: 'https://api.openai.com/v1', model: 'gpt-4o-mini' },
       gemini: {
         baseUrl: 'https://generativelanguage.googleapis.com/v1beta/openai',
-        model: 'gemini-2.0-flash',
+        model: 'gemini-3.8-flash',
       },
+      openai: { baseUrl: 'https://api.openai.com/v1', model: 'gpt-4o-mini' },
+      deepseek: { baseUrl: 'https://api.deepseek.com/v1', model: 'deepseek-chat' },
+      groq: { baseUrl: 'https://api.groq.com/openai/v1', model: 'llama-3.3-70b-versatile' },
+      ollama: { baseUrl: 'http://127.0.0.1:11434/v1', model: 'llama3' },
     };
 
     const chatMessages = document.getElementById('chatMessages');
@@ -1639,6 +1647,7 @@
           model: inputModel.value.trim(),
           base_url: inputBaseUrl.value.trim(),
           api_key: inputApiKey.value,
+          use_env: document.getElementById('chkUseEnv')?.checked ?? true,
         },
       };
       if (chatDomainSelect.value) payload.domain_id = chatDomainSelect.value;

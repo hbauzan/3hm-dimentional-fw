@@ -43,6 +43,7 @@ pub struct UpstreamConfigDto {
     pub model: Option<String>,
     pub api_key: Option<String>,
     pub base_url: Option<String>,
+    pub use_env: Option<bool>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -296,35 +297,54 @@ fn bearer_token(raw: Option<&str>) -> Result<Option<String>, ChatReject> {
     Ok(Some(token.to_string()))
 }
 
-fn http_upstream(
-    cfg: &UpstreamConfigDto,
-    default_base: &str,
-    default_model: &str,
-) -> Result<ChatUpstream, ChatReject> {
-    Ok(ChatUpstream::Http {
-        model: nonempty(cfg.model.as_deref(), default_model),
-        base_url: nonempty(cfg.base_url.as_deref(), default_base),
-        api_key: bearer_token(cfg.api_key.as_deref())?,
-    })
-}
-
 pub fn resolve_chat_upstream(cfg: Option<&UpstreamConfigDto>) -> Result<ChatUpstream, ChatReject> {
     let Some(cfg) = cfg else {
         return Ok(ChatUpstream::Mock {
             model: "mock".to_string(),
         });
     };
-    match cfg.provider.as_deref().unwrap_or("mock") {
-        "mock" => Ok(ChatUpstream::Mock {
+    let provider_name = cfg.provider.as_deref().unwrap_or("mock");
+    if provider_name == "mock" {
+        return Ok(ChatUpstream::Mock {
             model: nonempty(cfg.model.as_deref(), "mock"),
+        });
+    }
+
+    let env_info = crate::env_config::get_provider_env(provider_name);
+    let use_env = cfg.use_env.unwrap_or(false)
+        || cfg
+            .api_key
+            .as_deref()
+            .map(str::trim)
+            .filter(|s| !s.is_empty())
+            .is_none();
+
+    let effective_key = if use_env && !env_info.api_key.is_empty() {
+        Some(env_info.api_key.clone())
+    } else {
+        cfg.api_key.clone()
+    };
+
+    let effective_base = cfg
+        .base_url
+        .as_deref()
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .unwrap_or(&env_info.base_url);
+
+    let effective_model = cfg
+        .model
+        .as_deref()
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .unwrap_or(&env_info.model);
+
+    match provider_name {
+        "deepseek" | "openai" | "gemini" | "groq" | "ollama" => Ok(ChatUpstream::Http {
+            model: effective_model.to_string(),
+            base_url: effective_base.to_string(),
+            api_key: bearer_token(effective_key.as_deref())?,
         }),
-        "deepseek" => http_upstream(cfg, "https://api.deepseek.com/v1", "deepseek-chat"),
-        "openai" => http_upstream(cfg, "https://api.openai.com/v1", "gpt-4o-mini"),
-        "gemini" => http_upstream(
-            cfg,
-            "https://generativelanguage.googleapis.com/v1beta/openai",
-            "gemini-2.0-flash",
-        ),
         other => Err(reject(
             StatusCode::BAD_REQUEST,
             format!("unsupported upstream provider '{other}'"),
@@ -503,5 +523,37 @@ mod tests {
             (raw_hi + 0.2).to_bits()
         );
         assert_eq!(updated.domain_id, source.domain_id);
+    }
+
+    #[test]
+    fn resolve_chat_upstream_handles_mock_and_env_defaults() {
+        let none_upstream = resolve_chat_upstream(None).expect("mock default");
+        assert_eq!(none_upstream.model(), "mock");
+
+        let mock_upstream = resolve_chat_upstream(Some(&UpstreamConfigDto {
+            provider: Some("mock".to_string()),
+            model: Some("custom-mock".to_string()),
+            api_key: None,
+            base_url: None,
+            use_env: None,
+        }))
+        .expect("mock");
+        assert_eq!(mock_upstream.model(), "custom-mock");
+
+        let gemini = resolve_chat_upstream(Some(&UpstreamConfigDto {
+            provider: Some("gemini".to_string()),
+            model: None,
+            api_key: Some("explicit-key".to_string()),
+            base_url: None,
+            use_env: Some(false),
+        }))
+        .expect("gemini explicit");
+        assert_eq!(gemini.model(), "gemini-3.8-flash");
+        if let ChatUpstream::Http { base_url, api_key, .. } = gemini {
+            assert_eq!(base_url, "https://generativelanguage.googleapis.com/v1beta/openai");
+            assert_eq!(api_key, Some("explicit-key".to_string()));
+        } else {
+            panic!("expected Http upstream");
+        }
     }
 }

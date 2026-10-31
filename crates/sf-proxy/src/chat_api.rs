@@ -14,6 +14,7 @@ use sf_kernels::{
     L3InspectionMode, DIM,
 };
 
+use crate::cascade::{evaluate_pairwise_containment, pairwise_breach_envelope};
 use crate::handler::ProxyAppState;
 use crate::segmenter::segment_prompt_clauses;
 use crate::upstream::ReqwestChatForwarder;
@@ -151,7 +152,10 @@ pub fn apply_chat_overrides(
         next.l2_clause_threshold = threshold;
     }
     if let Some(quorum_k) = overrides.quorum_k {
-        next.quorum_k = quorum_k;
+        let cap = u16::try_from(next.noise_mask.active_count())
+            .unwrap_or(u16::MAX)
+            .max(1);
+        next.quorum_k = quorum_k.clamp(1, cap);
     }
     if let Some(epsilon) = overrides.epsilon {
         let previous = next.epsilon;
@@ -208,13 +212,13 @@ fn breach(
     }
 }
 
-/// `Ok(())` releases the prompt. `Err` is the playground breach card.
+/// `Ok(ChatBreachDto)` releases the prompt with gate telemetry. `Err` is the playground breach card.
 pub fn evaluate_chat_cascade(
     prompt_vec: &AlignedVec1024,
     clauses: &[&str],
     clause_vecs: &[AlignedVec1024],
     lock: &DomainHypercubeLock,
-) -> Result<(), Box<ChatBreachDto>> {
+) -> Result<ChatBreachDto, Box<ChatBreachDto>> {
     let l1_cosine = cosine_similarity_1024(prompt_vec, &lock.centroid);
     let l1_threshold = lock.l1_cosine_threshold;
     if !tier_passes(lock.polarity, l1_cosine, l1_threshold) {
@@ -227,8 +231,14 @@ pub fn evaluate_chat_cascade(
     }
 
     let l2_threshold = lock.l2_clause_threshold;
+    let mut min_clause_cosine = f32::MAX;
+    let mut min_clause_idx = 0;
     for (idx, (clause, clause_vec)) in clauses.iter().zip(clause_vecs.iter()).enumerate() {
         let clause_cosine = cosine_similarity_1024(clause_vec, &lock.centroid);
+        if clause_cosine < min_clause_cosine {
+            min_clause_cosine = clause_cosine;
+            min_clause_idx = idx;
+        }
         if !tier_passes(lock.polarity, clause_cosine, l2_threshold) {
             return Err(Box::new(breach(
                 TIER_L2,
@@ -245,8 +255,14 @@ pub fn evaluate_chat_cascade(
         }
     }
 
+    let mut min_affirmative_votes = u16::MAX;
+    let mut required_votes = lock.quorum_k;
     for clause_vec in clause_vecs {
         let l3 = evaluate_l3_gate(clause_vec, lock, L3InspectionMode::ModeCSpectralQuorum, 0);
+        if l3.affirmative_votes < min_affirmative_votes {
+            min_affirmative_votes = l3.affirmative_votes;
+        }
+        required_votes = l3.required_votes;
         if !l3.passed {
             return Err(Box::new(breach(
                 TIER_L3,
@@ -262,7 +278,32 @@ pub fn evaluate_chat_cascade(
         }
     }
 
-    Ok(())
+    Ok(ChatBreachDto {
+        decision: "PASS".to_string(),
+        failing_tier: "NONE".to_string(),
+        l1: l1_dto(true, l1_cosine, l1_threshold),
+        l2: Tier2BreachDto {
+            passed: true,
+            breached_clause_index: Some(min_clause_idx),
+            breached_clause_text: None,
+            clause_cosine: if min_clause_cosine == f32::MAX {
+                None
+            } else {
+                Some(min_clause_cosine)
+            },
+            threshold: l2_threshold,
+        },
+        l3: Tier3BreachDto {
+            evaluated: true,
+            passed: Some(true),
+            affirmative_votes: if min_affirmative_votes == u16::MAX {
+                None
+            } else {
+                Some(min_affirmative_votes)
+            },
+            required_votes: Some(required_votes),
+        },
+    })
 }
 
 fn nonempty(value: Option<&str>, default_value: &str) -> String {
@@ -432,8 +473,19 @@ pub async fn handle_api_v1_chat(
         }
     };
 
-    if let Err(dto) = evaluate_chat_cascade(&vectors[0], &clauses, &vectors[1..], &lock) {
-        return (StatusCode::FORBIDDEN, Json(*dto)).into_response();
+    let gate_dto = match evaluate_chat_cascade(&vectors[0], &clauses, &vectors[1..], &lock) {
+        Ok(dto) => dto,
+        Err(dto) => return (StatusCode::FORBIDDEN, Json(*dto)).into_response(),
+    };
+    let pairs = state.registry.pairwise_locks_for(&lock.domain_id);
+    if let Err(breach) =
+        evaluate_pairwise_containment(&vectors[0], &vectors[1..], &lock.domain_id, &pairs)
+    {
+        return (
+            StatusCode::FORBIDDEN,
+            Json(pairwise_breach_envelope(breach)),
+        )
+            .into_response();
     }
 
     let upstream = match resolve_chat_upstream(payload.upstream.as_ref()) {
@@ -462,7 +514,19 @@ pub async fn handle_api_v1_chat(
     };
 
     match forwarded {
-        Ok(response) => response,
+        Ok(mut response) => {
+            let headers = response.headers_mut();
+            headers.insert("x-sf-decision", HeaderValue::from_static("PASS"));
+            if let Ok(value) = HeaderValue::from_str(&clauses.len().to_string()) {
+                headers.insert("x-sf-clauses-evaluated", value);
+            }
+            if let Ok(json_str) = serde_json::to_string(&gate_dto) {
+                if let Ok(val) = HeaderValue::from_str(&json_str) {
+                    headers.insert("x-sf-telemetry", val);
+                }
+            }
+            response
+        }
         Err(err) => json_error(StatusCode::BAD_GATEWAY, err),
     }
 }
@@ -491,6 +555,34 @@ mod tests {
             polarity: 0,
             domain_version: 1,
         })
+    }
+
+    #[test]
+    fn quorum_override_is_clamped_to_the_active_mask() {
+        let source = sample_lock(0.0);
+        let active = u16::try_from(source.noise_mask.active_count()).unwrap();
+        assert_eq!(active, 1015);
+        let high = apply_chat_overrides(
+            &source,
+            &ChatOverridesDto {
+                l1_threshold: None,
+                l2_threshold: None,
+                quorum_k: Some(4_000),
+                epsilon: None,
+            },
+        );
+        let low = apply_chat_overrides(
+            &source,
+            &ChatOverridesDto {
+                l1_threshold: None,
+                l2_threshold: None,
+                quorum_k: Some(0),
+                epsilon: None,
+            },
+        );
+        assert_eq!(high.quorum_k, active);
+        assert_eq!(low.quorum_k, 1);
+        assert_eq!(source.quorum_k, 103);
     }
 
     #[test]
@@ -549,8 +641,14 @@ mod tests {
         }))
         .expect("gemini explicit");
         assert_eq!(gemini.model(), "gemini-3.8-flash");
-        if let ChatUpstream::Http { base_url, api_key, .. } = gemini {
-            assert_eq!(base_url, "https://generativelanguage.googleapis.com/v1beta/openai");
+        if let ChatUpstream::Http {
+            base_url, api_key, ..
+        } = gemini
+        {
+            assert_eq!(
+                base_url,
+                "https://generativelanguage.googleapis.com/v1beta/openai"
+            );
             assert_eq!(api_key, Some("explicit-key".to_string()));
         } else {
             panic!("expected Http upstream");

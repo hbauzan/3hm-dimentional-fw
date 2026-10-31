@@ -1,14 +1,15 @@
-import { parseChatBreach } from '../domain/breach.ts'
+import { parseChatBreach, parseChatTelemetry } from '../domain/breach.ts'
 import { resolveChatEndpoint } from '../domain/endpoint.ts'
 import { isRecord } from '../domain/json.ts'
 import { hasUserText } from '../domain/request.ts'
 import { createSseDecoder } from '../domain/sse.ts'
-import type { ChatOutcome, ChatRequest, UpstreamEnvCatalogDto } from '../domain/types.ts'
+import type { ChatOutcome, ChatRequest, ChatTelemetryDto, UpstreamEnvCatalogDto } from '../domain/types.ts'
 
 export interface PostChatArgs {
   gatewayBase: string
   request: ChatRequest
   onDelta?: (piece: string) => void
+  onTelemetry?: (telemetry: ChatTelemetryDto) => void
   fetchImpl?: typeof fetch
   signal?: AbortSignal
 }
@@ -40,7 +41,18 @@ export async function postChat(args: PostChatArgs): Promise<ChatOutcome> {
       const body = await response.text()
       return { kind: 'error', status: 200, message: body || 'expected text/event-stream' }
     }
-    return readSse(response, args.onDelta)
+    const rawTel = response.headers.get('x-sf-telemetry')
+    let telemetry: ChatTelemetryDto | undefined
+    if (rawTel) {
+      try {
+        const parsed = parseChatTelemetry(JSON.parse(rawTel))
+        if (parsed.ok) {
+          telemetry = parsed.value
+          args.onTelemetry?.(telemetry)
+        }
+      } catch {}
+    }
+    return readSse(response, args.onDelta, telemetry)
   }
 
   const payload = await readUnknown(response)
@@ -54,6 +66,7 @@ export async function postChat(args: PostChatArgs): Promise<ChatOutcome> {
 async function readSse(
   response: Response,
   onDelta: ((piece: string) => void) | undefined,
+  telemetry?: ChatTelemetryDto,
 ): Promise<ChatOutcome> {
   if (!response.body) return { kind: 'error', status: 200, message: 'empty stream' }
   const reader = response.body.getReader()
@@ -73,7 +86,7 @@ async function readSse(
   }
   emit(sse.push(decoder.decode()))
   emit(sse.flush())
-  return { kind: 'pass', text }
+  return { kind: 'pass', text, telemetry }
 }
 
 async function readUnknown(response: Response): Promise<unknown> {

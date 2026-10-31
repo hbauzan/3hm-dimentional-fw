@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Option 2C **ClauseSegmenter**: commas and trilingual discourse connectors split piggybacked clauses, and a clause longer than 14 words falls back to a window of 10 with stride 5.
+- Canonical calibration (`calibrate_canonical_pairs`) builds 11 domain locks and 55 **PairwiseDifferentialLock** rows from `BAAI/bge-m3` embeddings. A named canonical domain must pass its primary lock and every pairwise lock that names it. A pairwise failure is HTTP 403 `L3_PAIRWISE_QUORUM` and names the breaching lock.
+- Chat overrides clamp `quorum_k` into `[1, active_count]`. The playground leaves overrides off until the operator arms them.
 - Mock upstream isolation: decoupled `ChatUpstream::Mock` in `sf-proxy` via `mock_upstream` (`MockUpstreamForwarder`), ensuring offline deterministic SSE streaming on `/api/v1/chat` without falling back to unreachable network upstreams.
 - Decoupled playground in `frontend/`: the browser calls `POST /api/v1/chat` on `sf-proxy`, renders upstream SSE on PASS, and draws the Rayos X card from `ChatBreachDto` on HTTP 403. Live overrides and the upstream selector stay in the page. API keys stay in `localStorage`.
 - Upstream credentials from `.env`: `sf-proxy` serves `GET /api/v1/upstream/env` resolving environment variables and `.env` files for Gemini (`GEMINI_API_KEY`, `GOOGLE_API_KEY`), DeepSeek, OpenAI, Groq, and Ollama.

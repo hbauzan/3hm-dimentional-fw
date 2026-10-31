@@ -8,8 +8,9 @@ mod schema;
 mod validate;
 
 pub use calibration::{
-    calibrate_matrix, calibrate_noise_bitmask, read_f32_matrix, top_k_indices, Calibration,
-    CalibrationError,
+    assemble_canonical_locks, calibrate_matrix, calibrate_noise_bitmask, calibrate_pairwise_lock,
+    is_canonical_domain, pair_lock_sides, read_f32_matrix, top_k_indices, Calibration,
+    CalibrationError, CANONICAL_DOMAINS,
 };
 pub use lance_store::{
     load_registry, load_registry_table, write_calibration, write_locks, IngestSpec,

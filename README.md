@@ -152,10 +152,11 @@ By default, the gateway operates with the zero-dependency deterministic `mock` e
    TEI_HTTP_URL=http://127.0.0.1:8080
    SF_DEFAULT_DOMAIN=python
    ```
-3. **Calibrate domain locks with live TEI embeddings**:
+3. **Calibrate the eleven canonical domains and the 55 pairwise locks with live TEI embeddings**:
    ```bash
-   cargo run -p sf-bench --bin calibrate_real_domain
+   cargo run -p sf-bench --bin calibrate_canonical_pairs
    ```
+   `calibrate_real_domain` still writes one domain lock and keeps the other rows.
 *(Or use `./setup.sh` -> Option 11 to switch embedders and Option 7 -> 2 to calibrate automatically).*
 
 ---
@@ -167,7 +168,7 @@ The gateway daemon exposes the following HTTP interfaces on port `8088`:
 | Method | Endpoint | Description |
 | :--- | :--- | :--- |
 | `POST` | `/v1/chat/completions` | OpenAI drop-in proxy. Passes upstream response on PASS or returns HTTP 403 `BreachErrorEnvelope`. |
-| `POST` | `/api/v1/chat` | Streaming SSE endpoint for the playground. Returns unbuffered `text/event-stream` on PASS or HTTP 403 `ChatBreachDto` with full tier telemetry. |
+| `POST` | `/api/v1/chat` | Streaming SSE endpoint for the playground. Returns unbuffered `text/event-stream` on PASS, HTTP 403 `ChatBreachDto` when the primary lock fails, or HTTP 403 `kind: ddi_ingress_breach` when a pairwise lock fails. |
 | `GET` | `/api/v1/upstream/env` | Discovery endpoint reporting configured upstream API keys and models available in the daemon `.env`. |
 | `GET` | `/health` | Gateway health check. |
 

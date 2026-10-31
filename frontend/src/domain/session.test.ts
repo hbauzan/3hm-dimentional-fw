@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { PROVIDER_DEFAULTS } from './presets.ts'
 import {
+  DEFAULT_OVERRIDES_ARMED,
   apiKeyStorageKey,
   loadProviderUpstream,
   loadSession,
@@ -82,7 +83,7 @@ describe('session store', () => {
     const loaded = loadSession(memorySessionStore())
     expect(loaded.gatewayBase).toBe('http://127.0.0.1:8088')
     expect(loaded.domainId).toBe('python')
-    expect(loaded.overridesArmed).toBe(false)
+    expect(loaded.overridesArmed).toBe(DEFAULT_OVERRIDES_ARMED)
     expect(loaded.upstream.provider).toBe('mock')
     expect(loaded.upstream.apiKey).toBe('')
   })

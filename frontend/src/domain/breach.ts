@@ -1,6 +1,6 @@
 import { isRecord } from './json.ts'
 import { fail, ok } from './result.ts'
-import { FAILING_TIERS, type ChatBreachDto, type FailingTier, type ParseResult, type Tier1Breach, type Tier2Breach, type Tier3Breach } from './types.ts'
+import { FAILING_TIERS, type ChatBreachDto, type ChatTelemetryDto, type FailingTier, type ParseResult, type Tier1Breach, type Tier2Breach, type Tier3Breach } from './types.ts'
 
 export function parseChatBreach(value: unknown): ParseResult<ChatBreachDto> {
   if (!isRecord(value)) return fail('breach payload is not an object')
@@ -15,6 +15,24 @@ export function parseChatBreach(value: unknown): ParseResult<ChatBreachDto> {
   return ok({
     decision: 'BREACH',
     failing_tier: value.failing_tier,
+    l1: l1.value,
+    l2: l2.value,
+    l3: l3.value,
+  })
+}
+
+export function parseChatTelemetry(value: unknown): ParseResult<ChatTelemetryDto> {
+  if (!isRecord(value)) return fail('telemetry payload is not an object')
+  if (value.decision !== 'BREACH' && value.decision !== 'PASS') return fail('decision is invalid')
+  const l1 = parseTier1(value.l1)
+  if (!l1.ok) return l1
+  const l2 = parseTier2(value.l2)
+  if (!l2.ok) return l2
+  const l3 = parseTier3(value.l3)
+  if (!l3.ok) return l3
+  return ok({
+    decision: value.decision,
+    failing_tier: typeof value.failing_tier === 'string' ? value.failing_tier : undefined,
     l1: l1.value,
     l2: l2.value,
     l3: l3.value,

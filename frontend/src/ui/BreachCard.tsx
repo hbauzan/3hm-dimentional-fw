@@ -1,5 +1,5 @@
 import { clampUnit, formatGate } from '../domain/format.ts'
-import type { ChatBreachDto, Tier1Breach, Tier3Breach } from '../domain/types.ts'
+import type { ChatBreachDto, ChatTelemetryDto, Tier1Breach, Tier3Breach } from '../domain/types.ts'
 
 export function BreachCard({ breach }: { breach: ChatBreachDto }) {
   return (
@@ -10,8 +10,27 @@ export function BreachCard({ breach }: { breach: ChatBreachDto }) {
       <p className="text-[11px] tracking-wide text-studio-warn">[SEMANTIC CONTAINMENT BREACH]</p>
       <p className="mt-1 font-semibold text-studio-breach">{breach.failing_tier}</p>
       <Tier1 tier={breach.l1} />
-      <Tier2 breach={breach} />
+      <Tier2 telemetry={breach} />
       <Tier3 tier={breach.l3} />
+    </article>
+  )
+}
+
+export function PassCard({ telemetry }: { telemetry: ChatTelemetryDto }) {
+  return (
+    <article
+      aria-label="Semantic containment pass"
+      className="mb-2 border border-studio-pass/50 bg-studio-card px-3 py-3 text-xs"
+    >
+      <div className="flex items-center justify-between">
+        <p className="text-[11px] font-semibold tracking-wide text-studio-pass">[SEMANTIC CONTAINMENT PASS]</p>
+        <span className="text-[10px] text-studio-pass font-mono border border-studio-pass/40 bg-studio-pass/10 px-1.5 py-0.5 rounded">
+          ALL HEADS CLEAR
+        </span>
+      </div>
+      <Tier1 tier={telemetry.l1} />
+      <Tier2 telemetry={telemetry} />
+      <Tier3 tier={telemetry.l3} />
     </article>
   )
 }
@@ -39,17 +58,21 @@ function Tier1({ tier }: { tier: Tier1Breach }) {
   )
 }
 
-function Tier2({ breach }: { breach: ChatBreachDto }) {
-  const tier = breach.l2
+function Tier2({ telemetry }: { telemetry: ChatTelemetryDto }) {
+  const tier = telemetry.l2
   return (
     <section aria-label="Tier 2 clause gate" className="mt-3">
       <h3 className="text-studio-muted">Tier 2 — Clause Gate</h3>
-      {breach.failing_tier === 'L1_CENTROID_COSINE' ? (
+      {telemetry.failing_tier === 'L1_CENTROID_COSINE' ? (
         <p>Skipped (cascaded at L1).</p>
       ) : tier.passed ? (
         <>
           <StatusPill passed />
-          <p>Threshold: {tier.threshold.toFixed(4)}</p>
+          <p>
+            {tier.clause_cosine !== undefined
+              ? `Lowest Clause Cosine: ${formatGate(tier.clause_cosine, tier.threshold)}${tier.breached_clause_index !== undefined ? ` (Clause #${tier.breached_clause_index})` : ''}`
+              : `Threshold: ${tier.threshold.toFixed(4)}`}
+          </p>
         </>
       ) : (
         <>

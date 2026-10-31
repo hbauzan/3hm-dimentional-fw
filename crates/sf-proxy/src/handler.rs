@@ -172,6 +172,9 @@ pub async fn handle_v1_chat_completions(
             RouteFailure::Breach(envelope) => {
                 (StatusCode::FORBIDDEN, Json(*envelope)).into_response()
             }
+            RouteFailure::Pairwise(envelope) => {
+                (StatusCode::FORBIDDEN, Json(*envelope)).into_response()
+            }
         },
     }
 }

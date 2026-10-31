@@ -13,7 +13,10 @@ mod tei;
 mod telemetry;
 mod upstream;
 
-pub use cascade::{evaluate_three_tier_cascade, sha256_hex};
+pub use cascade::{
+    evaluate_pairwise_containment, evaluate_three_tier_cascade, pairwise_breach_envelope,
+    sha256_hex, PairwiseBreach, PairwiseBreachEnvelope,
+};
 pub use chat_api::{
     apply_chat_overrides, chat_upstream_body, evaluate_chat_cascade, latest_chat_user_text,
     resolve_chat_upstream, ChatBreachDto, ChatMessageDto, ChatOverridesDto, ChatReject,
@@ -27,12 +30,10 @@ pub use env_config::{
     read_env_file_map, ProviderEnvInfo, UpstreamEnvCatalog,
 };
 pub use handler::{
-    handle_api_v1_upstream_env, handle_v1_chat_completions, router, router_with_cors,
-    ProxyAppState,
+    handle_api_v1_upstream_env, handle_v1_chat_completions, router, router_with_cors, ProxyAppState,
 };
 pub use normalize::validate_and_normalize_f32_slice;
 pub use segmenter::segment_prompt_clauses;
 pub use tei::{embed_request, TeiGrpcEmbedder, TeiHttpEmbedder};
 pub use telemetry::BreachErrorEnvelope;
 pub use upstream::{MockUpstreamForwarder, ReqwestChatForwarder, UpstreamLlmForwarder};
-

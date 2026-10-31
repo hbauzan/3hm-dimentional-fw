@@ -4,10 +4,13 @@ use crate::telemetry::{
     f32_hex, BreachErrorBody, BreachErrorEnvelope, BreachMetricsDto, BreachTelemetryDto,
     CoordinateBreachDto,
 };
+use serde::Serialize;
 use sf_kernels::{
     cosine_similarity_1024, evaluate_l3_gate, AlignedVec1024, DomainHypercubeLock, L3InspectionMode,
 };
+use sf_storage::pair_lock_sides;
 use sha2::{Digest, Sha256};
+use std::sync::Arc;
 use std::time::Instant;
 
 pub fn sha256_hex(input: &str) -> String {
@@ -160,6 +163,112 @@ pub fn evaluate_three_tier_cascade(
     }
 
     Ok(clock.elapsed_ns())
+}
+
+/// One pairwise Mode C failure. `breaching_clause_index` is `None` when the full prompt failed.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PairwiseBreach {
+    pub domain_id: String,
+    pub breaching_pair_lock: String,
+    pub breaching_clause_index: Option<usize>,
+    pub message: String,
+}
+
+#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
+pub struct PairwiseTelemetry {
+    pub domain_id: String,
+    pub breaching_pair_lock: String,
+    pub breaching_clause_index: Option<usize>,
+    pub failing_tier: &'static str,
+}
+
+#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
+pub struct PairwiseBreachBody {
+    pub kind: &'static str,
+    pub code: &'static str,
+    pub message: String,
+    pub telemetry: PairwiseTelemetry,
+}
+
+#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
+pub struct PairwiseBreachEnvelope {
+    pub error: PairwiseBreachBody,
+}
+
+pub fn pairwise_breach_envelope(breach: PairwiseBreach) -> PairwiseBreachEnvelope {
+    PairwiseBreachEnvelope {
+        error: PairwiseBreachBody {
+            kind: "ddi_ingress_breach",
+            code: "SEMANTIC_CONTAINMENT_BREACH",
+            message: breach.message,
+            telemetry: PairwiseTelemetry {
+                domain_id: breach.domain_id,
+                breaching_pair_lock: breach.breaching_pair_lock,
+                breaching_clause_index: breach.breaching_clause_index,
+                failing_tier: "L3_PAIRWISE_QUORUM",
+            },
+        },
+    }
+}
+
+/// Tier-3 Mode C on the prompt and every clause, against each pairwise lock that names the target.
+///
+/// The stored envelope belongs to the left side of the pair id. The right side is evaluated with
+/// denylist polarity so the same lock admits its own side and rejects the other.
+pub fn evaluate_pairwise_containment(
+    prompt_vec: &AlignedVec1024,
+    clause_vecs: &[AlignedVec1024],
+    target_domain: &str,
+    pair_locks: &[Arc<DomainHypercubeLock>],
+) -> Result<(), PairwiseBreach> {
+    for lock in pair_locks {
+        let Some(polarity) = polarity_for_target(&lock.domain_id, target_domain) else {
+            continue;
+        };
+        let mut tuned = (**lock).clone();
+        tuned.polarity = polarity;
+        if !pairwise_l3_passes(prompt_vec, &tuned) {
+            return Err(pairwise_breach(target_domain, &lock.domain_id, None));
+        }
+        for (idx, clause_vec) in clause_vecs.iter().enumerate() {
+            if !pairwise_l3_passes(clause_vec, &tuned) {
+                return Err(pairwise_breach(target_domain, &lock.domain_id, Some(idx)));
+            }
+        }
+    }
+    Ok(())
+}
+
+fn polarity_for_target(pair_id: &str, target: &str) -> Option<u8> {
+    let (left, right) = pair_lock_sides(pair_id)?;
+    if target == left {
+        Some(0)
+    } else if target == right {
+        Some(1)
+    } else {
+        None
+    }
+}
+
+fn pairwise_l3_passes(vector: &AlignedVec1024, lock: &DomainHypercubeLock) -> bool {
+    evaluate_l3_gate(vector, lock, L3InspectionMode::ModeCSpectralQuorum, 0).passed
+}
+
+fn pairwise_breach(domain_id: &str, pair_id: &str, clause_index: Option<usize>) -> PairwiseBreach {
+    let message = match clause_index {
+        Some(idx) => format!(
+            "Fail-closed containment breach on pairwise lock '{pair_id}' for clause #{idx}."
+        ),
+        None => format!(
+            "Fail-closed containment breach on pairwise lock '{pair_id}' for the full prompt."
+        ),
+    };
+    PairwiseBreach {
+        domain_id: domain_id.to_string(),
+        breaching_pair_lock: pair_id.to_string(),
+        breaching_clause_index: clause_index,
+        message,
+    }
 }
 
 fn metrics_l1(l1_cos: f32, lock: &DomainHypercubeLock) -> BreachMetricsDto {

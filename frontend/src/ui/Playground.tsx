@@ -1,4 +1,4 @@
-import { useRef, useState, type FormEvent, type KeyboardEvent } from 'react'
+import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from 'react'
 import { resolveChatEndpoint } from '../domain/endpoint.ts'
 import { splitFences } from '../domain/format.ts'
 import { clampFloat, clampInt } from '../domain/overrides.ts'
@@ -24,7 +24,7 @@ import { BreachCard } from './BreachCard.tsx'
 const browserStore = browserSessionStore()
 
 const fieldClass =
-  'w-full border border-studio-line bg-studio-bg px-2 py-1 text-xs text-studio-text outline-none focus:border-studio-accent'
+  'w-full border border-studio-line bg-studio-bg px-1.5 py-0.5 text-xs text-studio-text outline-none focus:border-studio-accent'
 
 type Turn =
   | { id: string; kind: 'user'; text: string }
@@ -46,7 +46,23 @@ export function Playground({
   const [envLoading, setEnvLoading] = useState(false)
   const [envMessage, setEnvMessage] = useState<string | null>(null)
   const ids = useRef(0)
+  const messagesContainerRef = useRef<HTMLOListElement>(null)
+  const messagesEndRef = useRef<HTMLDivElement>(null)
+  const isAtBottomRef = useRef(true)
   const endpoint = resolveChatEndpoint(session.gatewayBase)
+
+  function handleScroll() {
+    const el = messagesContainerRef.current
+    if (!el) return
+    const threshold = 40
+    isAtBottomRef.current = el.scrollHeight - el.scrollTop - el.clientHeight <= threshold
+  }
+
+  useEffect(() => {
+    if (isAtBottomRef.current) {
+      messagesEndRef.current?.scrollIntoView?.({ behavior: 'smooth' })
+    }
+  }, [turns])
 
   async function syncEnv(targetProvider: UpstreamProvider = session.upstream.provider) {
     setEnvLoading(true)
@@ -156,44 +172,50 @@ export function Playground({
   }
 
   return (
-    <div className="min-h-screen bg-studio-bg text-studio-text">
-      <header className="flex flex-wrap items-baseline justify-between gap-3 border-b border-studio-line px-4 py-3">
-        <h1 className="text-sm tracking-widest text-studio-accent">SF-PROXY PLAYGROUND</h1>
-        <p className="text-[11px] text-studio-muted">
+    <div className="flex h-[100dvh] flex-col overflow-hidden bg-studio-bg text-studio-text">
+      <header className="flex flex-shrink-0 items-center justify-between border-b border-studio-line px-4 py-2.5">
+        <h1 className="text-xs font-semibold tracking-widest text-studio-accent uppercase">
+          SF-PROXY PLAYGROUND
+        </h1>
+        <p className="text-[11px] font-mono text-studio-muted">
           {endpoint.ok ? `POST ${endpoint.value}` : endpoint.message}
         </p>
       </header>
-      <div className="grid gap-4 p-4 lg:grid-cols-[minmax(0,1fr)_22rem]">
-        <section aria-label="Chat" className="flex min-h-[70vh] flex-col border border-studio-line bg-studio-panel">
-          <h2 className="border-b border-studio-line px-3 py-2 text-[11px] tracking-wide text-studio-muted">
-            Chat
-          </h2>
-          <ol aria-label="Messages" className="flex flex-1 flex-col gap-3 overflow-auto px-3 py-3">
+      <main className="flex flex-1 overflow-hidden">
+        <section aria-label="Chat" className="flex flex-1 flex-col overflow-hidden min-w-0">
+          <h2 className="sr-only">Chat</h2>
+          <ol
+            ref={messagesContainerRef}
+            onScroll={handleScroll}
+            aria-label="Messages"
+            className="flex flex-1 flex-col gap-3 overflow-y-auto overscroll-contain px-4 py-4"
+          >
             {turns.map((turn) => (
               <li key={turn.id}>
                 <TurnView turn={turn} />
               </li>
             ))}
+            <div ref={messagesEndRef} />
           </ol>
-          <div className="flex flex-wrap gap-2 border-t border-studio-line px-3 py-2">
+          <div className="flex flex-shrink-0 flex-wrap gap-1.5 border-t border-studio-line bg-studio-panel/40 px-3 py-1.5">
             {PROMPT_PRESETS.map((preset) => (
               <button
                 key={preset.id}
                 type="button"
-                className="border border-studio-line px-2 py-1 text-[11px] text-studio-muted hover:border-studio-accent hover:text-studio-text"
+                className="border border-studio-line px-2 py-0.5 text-[11px] text-studio-muted hover:border-studio-accent hover:text-studio-text transition-colors"
                 onClick={() => setDraft(preset.text)}
               >
                 {preset.label}
               </button>
             ))}
           </div>
-          <form onSubmit={onSubmit} className="flex gap-2 border-t border-studio-line p-3">
+          <form onSubmit={onSubmit} className="flex flex-shrink-0 gap-2 border-t border-studio-line bg-studio-panel p-3">
             <textarea
               aria-label="Prompt"
               value={draft}
-              rows={3}
+              rows={2}
               spellCheck={false}
-              className={`${fieldClass} min-h-16 resize-y`}
+              className="w-full min-h-14 resize-none border border-studio-line bg-studio-bg px-2.5 py-1.5 text-xs text-studio-text outline-none focus:border-studio-accent"
               placeholder="Enter sends. Shift+Enter inserts a line."
               onChange={(event) => setDraft(event.target.value)}
               onKeyDown={onPromptKeyDown}
@@ -201,15 +223,18 @@ export function Playground({
             <button
               type="submit"
               disabled={busy || draft.trim() === ''}
-              className="border border-sky-700 bg-sky-700 px-3 py-2 text-xs font-semibold text-white disabled:opacity-40"
+              className="border border-sky-700 bg-sky-700 px-4 py-2 text-xs font-semibold text-white disabled:opacity-40 hover:bg-sky-600 transition-colors cursor-pointer disabled:cursor-not-allowed"
             >
               {busy ? 'Sending' : 'Send'}
             </button>
           </form>
         </section>
-        <aside aria-label="Live tuning" className="flex flex-col gap-4 border border-studio-line bg-studio-panel p-3">
-          <h2 className="text-[11px] tracking-wide text-studio-muted">Live tuning</h2>
-          <label className="flex flex-col gap-1 text-[11px] uppercase tracking-wide text-studio-muted">
+        <aside
+          aria-label="Live tuning"
+          className="flex w-60 flex-shrink-0 flex-col gap-2.5 overflow-y-auto border-l border-studio-line bg-studio-panel p-3"
+        >
+          <h2 className="text-[10px] font-semibold tracking-wider uppercase text-studio-muted">Live tuning</h2>
+          <label className="flex flex-col gap-1 text-[10px] uppercase tracking-wide text-studio-muted">
             Gateway base
             <input
               className={fieldClass}
@@ -221,7 +246,7 @@ export function Playground({
               }
             />
           </label>
-          <label className="flex flex-col gap-1 text-[11px] uppercase tracking-wide text-studio-muted">
+          <label className="flex flex-col gap-1 text-[10px] uppercase tracking-wide text-studio-muted">
             Domain id
             <input
               className={fieldClass}
@@ -233,7 +258,7 @@ export function Playground({
               }
             />
           </label>
-          <label className="flex items-center gap-2 text-[11px] uppercase tracking-wide text-studio-muted">
+          <label className="flex items-center gap-2 cursor-pointer text-[10px] uppercase tracking-wide text-studio-muted hover:text-studio-text">
             <input
               type="checkbox"
               checked={session.overridesArmed}
@@ -279,10 +304,10 @@ export function Playground({
             value={session.overrides.epsilon}
             onChange={(value) => tune({ epsilon: clampFloat(value, 0, 0.5, 3, 0) })}
           />
-          <h2 className="text-[11px] tracking-wide text-studio-muted">Upstream</h2>
+          <h2 className="mt-1 text-[10px] font-semibold tracking-wider uppercase text-studio-muted">Upstream</h2>
           <div className="flex flex-col gap-2 border border-studio-line bg-studio-panel/50 p-2">
             <div className="flex items-center justify-between">
-              <label className="flex items-center gap-2 cursor-pointer text-[11px] uppercase tracking-wide text-studio-muted hover:text-studio-text">
+              <label className="flex items-center gap-1.5 cursor-pointer text-[10px] uppercase tracking-wide text-studio-muted hover:text-studio-text">
                 <input
                   type="checkbox"
                   aria-label="Usar keys de .env"
@@ -306,7 +331,7 @@ export function Playground({
                 type="button"
                 disabled={envLoading}
                 aria-label="Cargar de .env"
-                className="border border-studio-line px-2 py-0.5 text-[10px] text-studio-muted hover:border-studio-accent hover:text-studio-text disabled:opacity-50"
+                className="border border-studio-line px-1.5 py-0.5 text-[10px] text-studio-muted hover:border-studio-accent hover:text-studio-text disabled:opacity-50"
                 onClick={() => void syncEnv(session.upstream.provider)}
               >
                 {envLoading ? 'Leyendo…' : '🔄 Cargar de .env'}
@@ -315,7 +340,7 @@ export function Playground({
             {envMessage ? (
               <p
                 role="status"
-                className={`text-[10px] font-mono ${
+                className={`text-[10px] font-mono break-words ${
                   envMessage.startsWith('✓') ? 'text-emerald-400' : 'text-amber-400'
                 }`}
               >
@@ -323,7 +348,7 @@ export function Playground({
               </p>
             ) : null}
           </div>
-          <div className="flex flex-col gap-1 text-[11px] uppercase tracking-wide text-studio-muted">
+          <div className="flex flex-col gap-1 text-[10px] uppercase tracking-wide text-studio-muted">
             <label htmlFor="upstream-provider">Provider</label>
             <select
               id="upstream-provider"
@@ -347,11 +372,11 @@ export function Playground({
             </select>
           </div>
           {session.upstream.provider === 'mock' ? (
-            <p className="text-[11px] text-studio-warn">
+            <p className="text-[10px] text-studio-warn leading-tight">
               mock ignores base URL and API key. The gateway returns its own SSE chunk.
             </p>
           ) : null}
-          <label className="flex flex-col gap-1 text-[11px] uppercase tracking-wide text-studio-muted">
+          <label className="flex flex-col gap-1 text-[10px] uppercase tracking-wide text-studio-muted">
             Base URL
             <input
               className={fieldClass}
@@ -366,7 +391,7 @@ export function Playground({
               }
             />
           </label>
-          <label className="flex flex-col gap-1 text-[11px] uppercase tracking-wide text-studio-muted">
+          <label className="flex flex-col gap-1 text-[10px] uppercase tracking-wide text-studio-muted">
             Model
             <input
               className={fieldClass}
@@ -381,7 +406,7 @@ export function Playground({
               }
             />
           </label>
-          <label className="flex flex-col gap-1 text-[11px] uppercase tracking-wide text-studio-muted">
+          <label className="flex flex-col gap-1 text-[10px] uppercase tracking-wide text-studio-muted">
             API key
             <input
               type="password"
@@ -398,7 +423,7 @@ export function Playground({
             />
           </label>
         </aside>
-      </div>
+      </main>
     </div>
   )
 }
@@ -423,9 +448,12 @@ function Slider({
   const shown = digits === 0 ? String(value) : value.toFixed(digits)
   const id = `tune-${label.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`
   return (
-    <div className="flex flex-col gap-1 text-[11px] uppercase tracking-wide text-studio-muted">
-      <label htmlFor={id}>
-        {label} <output htmlFor={id}>{shown}</output>
+    <div className="flex flex-col gap-0.5 text-[10px] uppercase tracking-wide text-studio-muted">
+      <label htmlFor={id} className="flex items-center justify-between cursor-pointer">
+        <span>{label}</span>
+        <output htmlFor={id} className="font-mono text-[10px] text-studio-accent">
+          {shown}
+        </output>
       </label>
       <input
         id={id}
@@ -435,6 +463,7 @@ function Slider({
         max={max}
         step={step}
         value={value}
+        className="h-1.5 w-full cursor-pointer accent-studio-accent"
         onChange={(event) => onChange(Number(event.target.value))}
       />
     </div>
@@ -443,24 +472,30 @@ function Slider({
 
 function TurnView({ turn }: { turn: Turn }) {
   if (turn.kind === 'user') {
-    return <p className="whitespace-pre-wrap border border-studio-line bg-studio-bg px-2 py-2">{turn.text}</p>
+    return (
+      <div className="flex justify-end">
+        <p className="max-w-[85%] whitespace-pre-wrap border border-studio-line bg-studio-card px-3 py-2 text-xs text-studio-text">
+          {turn.text}
+        </p>
+      </div>
+    )
   }
   if (turn.kind === 'breach') return <BreachCard breach={turn.breach} />
   if (turn.kind === 'error') {
     return (
-      <p className="border border-studio-breach px-2 py-2 text-studio-breach">
+      <p className="border border-studio-breach bg-studio-breach/10 px-3 py-2 text-xs font-mono text-studio-breach">
         HTTP {turn.status} {turn.message}
       </p>
     )
   }
   if (turn.streaming) {
-    return <p className="whitespace-pre-wrap px-2 py-2">{turn.text}</p>
+    return <p className="whitespace-pre-wrap px-2 py-2 text-xs">{turn.text}</p>
   }
   return (
-    <div className="px-2 py-2">
+    <div className="px-2 py-2 text-xs">
       {splitFences(turn.text).map((part, index) =>
         part.kind === 'code' ? (
-          <pre key={index} className="overflow-auto border border-studio-line bg-studio-bg p-2">
+          <pre key={index} className="overflow-auto border border-studio-line bg-studio-bg p-2 text-xs">
             <code>{part.text}</code>
           </pre>
         ) : (

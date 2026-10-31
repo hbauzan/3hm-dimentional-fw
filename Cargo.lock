@@ -5358,6 +5358,7 @@ dependencies = [
  "async-trait",
  "axum",
  "bytes",
+ "clap",
  "futures-util",
  "http",
  "http-body-util",
@@ -5374,6 +5375,7 @@ dependencies = [
  "tonic-prost",
  "tonic-prost-build",
  "tower",
+ "tower-http",
 ]
 
 [[package]]

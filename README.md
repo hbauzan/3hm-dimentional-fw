@@ -14,6 +14,25 @@ cargo test --workspace
 
 Copy `.env.example` to `.env` for local endpoints. `.env` stays untracked.
 
+The gateway daemon is `sf-proxy`. It reads the same environment variables and requires `LANCEDB_URI`.
+
+```bash
+cargo run -p sf-proxy --bin sf-proxy
+```
+
+## Decoupled playground
+
+`frontend/` is the browser client. Its only package manager is pnpm. The page calls `POST /api/v1/chat` on the gateway origin. Vite does not proxy that call. Copy `frontend/.env.example` to `frontend/.env` to point at another origin. API keys stay in `localStorage`.
+
+```bash
+cd frontend
+pnpm install
+pnpm test
+pnpm dev
+```
+
+Open `http://127.0.0.1:5173`. The default gateway is `http://127.0.0.1:8088`. An empty `SF_CORS_ORIGIN` allows that origin. A fresh session sends `domain_id` and leaves the lock thresholds alone. Checking **Apply overrides**, or moving a slider, clones `l1_threshold`, `l2_threshold`, `quorum_k`, and `epsilon` for the next request. `provider: mock` ignores base URL and API key.
+
 ## Architecture & Roadmap
 
 - [Deterministic AI Engineering Roadmap](roadmap/deterministic-ai-roadmap.md)

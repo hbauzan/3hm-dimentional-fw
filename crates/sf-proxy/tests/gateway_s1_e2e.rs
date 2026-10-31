@@ -14,7 +14,7 @@ use http_body_util::BodyExt;
 use sf_kernels::{AlignedVec1024, DomainHypercubeLock, LockSpec, NoiseBitmask1024, MAX_TOPK};
 use sf_proxy::{
     router, router_with_cors, CorsAllow, MockBatchEmbedder, MockUpstreamForwarder, ProxyAppState,
-    UpstreamLlmForwarder,
+    ReqwestChatForwarder, UpstreamLlmForwarder,
 };
 use sf_storage::HotRegistry;
 use tower::ServiceExt;
@@ -64,7 +64,8 @@ fn state(
             pass_vector: centroid,
             breach_vector: AlignedVec1024::zeros(),
         }),
-        upstream,
+        upstream: Arc::clone(&upstream),
+        mock_upstream: upstream,
         default_domain: "python".to_string(),
         max_telemetry_coords: 4,
     });
@@ -382,3 +383,53 @@ async fn concurrent_chat_sse_lanes_stay_unmixed() {
         "streams never overlapped"
     );
 }
+
+#[tokio::test]
+async fn chat_mock_upstream_does_not_forward_to_unreachable_network_upstream() {
+    let lock = python_lock(0.5);
+    let centroid = lock.centroid;
+    let registry = Arc::new(HotRegistry::from_locks([lock]));
+
+    // Unreachable network upstream in app_state.upstream:
+    let unreachable_upstream = Arc::new(ReqwestChatForwarder::new("http://127.0.0.1:9"));
+    let app_state = Arc::new(ProxyAppState {
+        registry: Arc::clone(&registry),
+        embedder: Arc::new(MockBatchEmbedder {
+            pass_vector: centroid,
+            breach_vector: AlignedVec1024::zeros(),
+        }),
+        upstream: unreachable_upstream,
+        mock_upstream: Arc::new(MockUpstreamForwarder),
+        default_domain: "python".to_string(),
+        max_telemetry_coords: 4,
+    });
+    let app = router(app_state);
+
+    let (status, headers, text) = oneshot(
+        app,
+        Request::builder()
+            .method("POST")
+            .uri("/api/v1/chat")
+            .header("content-type", "application/json")
+            .body(Body::from(
+                r#"{"messages":[{"role":"user","content":"pass prompt"}],"upstream":{"provider":"mock"}}"#,
+            ))
+            .unwrap(),
+    )
+    .await;
+
+    assert_eq!(status, StatusCode::OK, "text: {text}");
+    assert!(
+        headers
+            .get("content-type")
+            .and_then(|v| v.to_str().ok())
+            .unwrap_or("")
+            .starts_with("text/event-stream"),
+        "headers: {headers:?}"
+    );
+    assert!(
+        text.contains(r#"data: {"object":"chat.completion.chunk","mock":true}"#),
+        "text: {text}"
+    );
+}
+

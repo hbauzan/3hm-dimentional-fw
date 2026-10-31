@@ -85,6 +85,7 @@ async fn main() {
             breach_vector: AlignedVec1024 { data: [0.0; DIM] },
         }),
         upstream: Arc::new(MockUpstreamForwarder),
+        mock_upstream: Arc::new(MockUpstreamForwarder),
         default_domain: "python_receta".to_string(),
         max_telemetry_coords: 1,
     });

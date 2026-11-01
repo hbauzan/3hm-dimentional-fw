@@ -202,6 +202,35 @@ describe('Playground', () => {
     expect(screen.queryByText('[SEMANTIC CONTAINMENT BREACH]')).toBeNull()
   })
 
+  it('omits epsilon until that perilla moves, then posts the pinned value', async () => {
+    const user = userEvent.setup()
+    const { fetchImpl, sent } = recordingFetch(() => sseResponse([delta('x')]))
+    render(<Playground fetchImpl={fetchImpl} store={memorySessionStore()} />)
+    fireEvent.change(screen.getByRole('slider', { name: 'L2 clause threshold' }), {
+      target: { value: '0.8' },
+    })
+    await user.type(screen.getByRole('textbox', { name: 'Prompt' }), 'hola')
+    await user.click(screen.getByRole('button', { name: 'Send' }))
+    await screen.findByText('x')
+    const tuned = sent[0]?.body as {
+      overrides: { l2_threshold: number; epsilon?: number }
+    }
+    expect(tuned.overrides.l2_threshold).toBe(0.8)
+    expect(tuned.overrides.epsilon).toBeUndefined()
+
+    fireEvent.change(screen.getByRole('slider', { name: 'Epsilon' }), {
+      target: { value: '0.05' },
+    })
+    await user.type(screen.getByRole('textbox', { name: 'Prompt' }), 'otra')
+    await user.click(screen.getByRole('button', { name: 'Send' }))
+    await screen.findAllByText('x')
+    const pinned = sent[1]?.body as {
+      overrides: { epsilon?: number; l2_threshold: number }
+    }
+    expect(pinned.overrides.l2_threshold).toBe(0.8)
+    expect(pinned.overrides.epsilon).toBe(0.05)
+  })
+
   it('moves the L1 slider into the next request body', async () => {
     const user = userEvent.setup()
     const { fetchImpl, sent } = recordingFetch(() => sseResponse([delta('x')]))

@@ -63,7 +63,14 @@ function Tier2({ telemetry }: { telemetry: ChatTelemetryDto }) {
   return (
     <section aria-label="Tier 2 clause gate" className="mt-3">
       <h3 className="text-studio-muted">Tier 2 — Clause Gate</h3>
-      {telemetry.failing_tier === 'L1_CENTROID_COSINE' ? (
+      {telemetry.failing_tier === 'L3_PAIRWISE_QUORUM' ? (
+        <p className="text-studio-breach">
+          {tier.breached_clause_text ?? 'pairwise lock'}
+          {tier.breached_clause_index === undefined
+            ? ' · full prompt'
+            : ` · clause #${tier.breached_clause_index}`}
+        </p>
+      ) : telemetry.failing_tier === 'L1_CENTROID_COSINE' ? (
         <p>Skipped (cascaded at L1).</p>
       ) : tier.passed ? (
         <>

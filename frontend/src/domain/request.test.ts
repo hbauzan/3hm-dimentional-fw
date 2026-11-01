@@ -32,9 +32,28 @@ describe('buildChatRequest', () => {
         l1_threshold: 0.5,
         l2_threshold: 0.5,
         quorum_k: 103,
-        epsilon: 0,
       },
       upstream: { provider: 'mock', model: 'mock' },
+    })
+  })
+
+  it('sends epsilon only after the operator pins that perilla', () => {
+    const body = buildChatRequest(
+      draft({
+        epsilonPinned: true,
+        overrides: {
+          l1_threshold: 0.5,
+          l2_threshold: 0.5,
+          quorum_k: 103,
+          epsilon: 0,
+        },
+      }),
+    )
+    expect(body.overrides).toEqual({
+      l1_threshold: 0.5,
+      l2_threshold: 0.5,
+      quorum_k: 103,
+      epsilon: 0,
     })
   })
 
@@ -47,6 +66,7 @@ describe('buildChatRequest', () => {
   it('clamps override numbers onto the studio ranges', () => {
     const body = buildChatRequest(
       draft({
+        epsilonPinned: true,
         overrides: {
           l1_threshold: 1.4,
           l2_threshold: Number.NaN,

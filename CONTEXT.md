@@ -28,6 +28,10 @@ The deterministic splitter that yields borrowed clause slices from one prompt.
 
 A **DomainHypercubeLock** whose id is `left_right` for two canonical domains. The coordinate envelope belongs to `left`.
 
+## L3PairwiseQuorum
+
+Failing tier `L3_PAIRWISE_QUORUM`. A **PairwiseDifferentialLock** rejected the prompt or one clause.
+
 ## AnyAllowlist
 
 Wildcard policy for `X-Semantic-Domain: *`. One allowlist must contain the prompt and every clause.

@@ -52,6 +52,8 @@ export function Playground({
   const [envLoading, setEnvLoading] = useState(false)
   const [envMessage, setEnvMessage] = useState<string | null>(null)
   const ids = useRef(0)
+  const providerRef = useRef(session.upstream.provider)
+  providerRef.current = session.upstream.provider
   const messagesContainerRef = useRef<HTMLOListElement>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const isAtBottomRef = useRef(true)
@@ -75,25 +77,32 @@ export function Playground({
     setEnvMessage(null)
     try {
       const catalog = await fetchUpstreamEnvCatalog(session.gatewayBase, fetchImpl)
+      if (providerRef.current !== targetProvider) return
       if (catalog?.providers && catalog.providers[targetProvider]) {
         const info = catalog.providers[targetProvider]
         if (info.configured && info.api_key) {
-          commit((current) => ({
-            ...current,
-            upstream: {
-              ...current.upstream,
-              useEnv: true,
-              apiKey: info.api_key,
-              baseUrl: info.base_url || current.upstream.baseUrl,
-              model: info.model || current.upstream.model,
-            },
-          }))
+          commit((current) => {
+            if (current.upstream.provider !== targetProvider) return current
+            return {
+              ...current,
+              upstream: {
+                ...current.upstream,
+                useEnv: true,
+                apiKey: info.api_key,
+                baseUrl: info.base_url || current.upstream.baseUrl,
+                model: info.model || current.upstream.model,
+              },
+            }
+          })
           setEnvMessage(`✓ Clave cargada de .env (${info.env_key_found ?? 'detectada'})`)
         } else if (info.configured && targetProvider === 'mock') {
-          commit((current) => ({
-            ...current,
-            upstream: { ...current.upstream, useEnv: true },
-          }))
+          commit((current) => {
+            if (current.upstream.provider !== targetProvider) return current
+            return {
+              ...current,
+              upstream: { ...current.upstream, useEnv: true },
+            }
+          })
           setEnvMessage('✓ Mock no requiere API key')
         } else {
           setEnvMessage(`⚠️ Sin clave en .env para ${targetProvider}`)
@@ -114,15 +123,18 @@ export function Playground({
   }
 
   function commit(recipe: (current: SpaSession) => SpaSession) {
-    const next = recipe(session)
-    saveSession(store, next)
-    setSession(next)
+    setSession((current) => {
+      const next = recipe(current)
+      saveSession(store, next)
+      return next
+    })
   }
 
-  function tune(patch: Partial<SpaSession['overrides']>) {
+  function tune(patch: Partial<SpaSession['overrides']>, pinEpsilon = false) {
     commit((current) => ({
       ...current,
       overridesArmed: true,
+      epsilonPinned: pinEpsilon ? true : current.epsilonPinned,
       overrides: { ...current.overrides, ...patch },
     }))
   }
@@ -143,6 +155,7 @@ export function Playground({
         messages: messagesFrom(history),
         domainId: session.domainId,
         overridesArmed: session.overridesArmed,
+        epsilonPinned: session.epsilonPinned,
         overrides: session.overrides,
         upstream: session.upstream,
       }),
@@ -331,7 +344,7 @@ export function Playground({
             step={0.005}
             digits={3}
             value={session.overrides.epsilon}
-            onChange={(value) => tune({ epsilon: clampFloat(value, 0, 0.5, 3, 0) })}
+            onChange={(value) => tune({ epsilon: clampFloat(value, 0, 0.5, 3, 0) }, true)}
           />
           <h2 className="mt-1 text-[10px] font-semibold tracking-wider uppercase text-studio-muted">Upstream</h2>
           <div className="flex flex-col gap-2 border border-studio-line bg-studio-panel/50 p-2">

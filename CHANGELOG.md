@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Playground chat no longer false-breaches an in-domain prompt on an empty pairwise mask. `MockBatchEmbedder` skips pairwise containment unless the batch contains the exact token `BREACH`. `PERMUTATION_NOISE` still breaches Tier 3. The SPA renders an ADR-005 pairwise envelope as `L3_PAIRWISE_QUORUM`. Live tuning omits `epsilon` until that slider moves. `pnpm test:e2e` runs the Playwright suite in `frontend/e2e`.
 - Playground **Domain id** is a `<select>` of the 11 canonical domains (`CANONICAL_DOMAINS` in `frontend/src/domain/presets.ts`, same order as `sf-storage` calibration). A stored non-canonical id stays as an extra option so the session value remains selected.
 - Native Apple Silicon embedder: on Darwin arm64, `setup.sh` stops Docker `sf-tei` and serves `BAAI/bge-m3` from `tools/bge_m3_mps_server.py` (`uv`, Metal `mps`, `torch.float32`) on `127.0.0.1:8080`. `GET /health` and `POST /embed` stay drop-in compatible with `TeiHttpEmbedder`.
 - Option 2C **ClauseSegmenter**: commas and trilingual discourse connectors split piggybacked clauses, and a clause longer than 14 words falls back to a window of 10 with stride 5.

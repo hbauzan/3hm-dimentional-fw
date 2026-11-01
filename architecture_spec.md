@@ -30,7 +30,7 @@ Option 2C delimiters are newline, `;`, `,`, `#`, `.` `!` `?` when followed by wh
 
 A canonical domain request passes the primary **DomainHypercubeLock** (L1, L2, L3) and then Tier-3 Mode C on every **PairwiseDifferentialLock** whose id names that domain. Registries that contain no pairwise rows keep the single-lock cascade.
 
-The pair id is lexicographic `left_right`. The stored envelope is `left`'s coordinate range. Discriminative coordinates are those outside the nine universal noise indices whose ranges do not overlap; the mask keeps the 103 largest separations, or every remaining coordinate when fewer than 103 separate. Quorum is 103 in the first case and `ceil(0.10 * active)` in the second. An empty mask fails closed with quorum 1.
+The pair id is lexicographic `left_right`. The stored envelope is `left`'s coordinate range. Discriminative coordinates are those outside the nine universal noise indices whose ranges do not overlap; the mask keeps the 103 largest separations, or every remaining coordinate when fewer than 103 separate. Quorum is 103 in the first case and `ceil(0.10 * active)` in the second. An empty mask still stores quorum 1, and the kernel gate fail-closes if that mask is scored directly. `evaluate_pairwise_containment` skips `active_count == 0`: normalized `bge-m3` ranges overlap, so an allowlist quorum of 1 would reject every in-domain vector.
 
 Evaluation polarity follows the side under test. Target `left` must sit inside the envelope. Target `right` must miss quorum inside that same envelope. The first failing vector aborts. The full prompt uses no clause index. A clause failure reports that index.
 
@@ -91,11 +91,13 @@ The upstream body is OpenAI chat-completions JSON (`model`, `messages`, `stream:
 
 ## Gateway daemon
 
-The `sf-proxy` binary loads a LanceDB registry and serves both ingress routes on `SF_HOST`:`SF_PORT` (default `127.0.0.1:8088`). `POST /v1/chat/completions` still returns `BreachErrorEnvelope`. `POST /api/v1/chat` returns `ChatBreachDto` or an unbuffered `text/event-stream`. The two JSON shapes stay distinct.
+The `sf-proxy` binary loads a LanceDB registry and serves both ingress routes on `SF_HOST`:`SF_PORT` (default `127.0.0.1:8088`). `POST /v1/chat/completions` still returns `BreachErrorEnvelope`. `POST /api/v1/chat` returns `ChatBreachDto` or an unbuffered `text/event-stream`. A pairwise failure on that route still uses the ADR-005 envelope. The two JSON shapes stay distinct.
+
+`MockBatchEmbedder` does not run pairwise containment unless a batch string is exactly `BREACH`. Every other mock string is the domain centroid and cannot sit in a differential envelope. A batch string that contains `PERMUTATION_NOISE` (any case) is reprojected before the cascade: cosine stays near the centroid and Tier 3 affirmative votes stay below quorum `K`. Live tuning omits `epsilon` until the operator moves that slider, so an L1 or L2 change does not collapse stored dilation.
 
 `SF_CORS_ORIGIN` sets `Access-Control-Allow-Origin`. An empty value or `*` allows any origin. Chat overrides clone the **DomainHypercubeLock** for that request. A registry write happens only through an explicit LanceDB reload.
 
-The playground in `frontend/` is a separate origin. It posts to `/api/v1/chat` on this daemon and reads `ChatBreachDto` or the unbuffered event stream. A pairwise breach uses the ADR-005 envelope instead of `ChatBreachDto`. The dev server does not proxy that call. API keys stay in browser `localStorage`. Live tuning starts disarmed.
+The playground in `frontend/` is a separate origin. It posts to `/api/v1/chat` on this daemon and reads `ChatBreachDto` or the unbuffered event stream. The SPA maps an ADR-005 pairwise envelope onto `ChatBreachDto` with `failing_tier: L3_PAIRWISE_QUORUM` before drawing the breach card. The dev server does not proxy that call. API keys stay in browser `localStorage`. Live tuning starts disarmed. Headless checks live in `frontend/e2e` and run with `pnpm test:e2e` while this daemon is on `:8088` and Vite is on `:5173`.
 
 ## Egress semantic amplification (next milestone, not implemented)
 

@@ -11,10 +11,12 @@ use axum::response::Response;
 use bytes::Bytes;
 use futures_util::stream;
 use http_body_util::BodyExt;
-use sf_kernels::{AlignedVec1024, DomainHypercubeLock, LockSpec, NoiseBitmask1024, MAX_TOPK};
+use sf_kernels::{
+    AlignedVec1024, DomainHypercubeLock, LockSpec, NoiseBitmask1024, MAX_TOPK, NOISE_MASK_WORDS,
+};
 use sf_proxy::{
-    router, router_with_cors, CorsAllow, MockBatchEmbedder, MockUpstreamForwarder, ProxyAppState,
-    ReqwestChatForwarder, UpstreamLlmForwarder,
+    router, router_with_cors, BatchEmbedderClient, CorsAllow, MockBatchEmbedder,
+    MockUpstreamForwarder, ProxyAppState, ReqwestChatForwarder, UpstreamLlmForwarder,
 };
 use sf_storage::HotRegistry;
 use tower::ServiceExt;
@@ -431,4 +433,215 @@ async fn chat_mock_upstream_does_not_forward_to_unreachable_network_upstream() {
         text.contains(r#"data: {"object":"chat.completion.chunk","mock":true}"#),
         "text: {text}"
     );
+}
+
+fn empty_python_receta(primary: &DomainHypercubeLock) -> DomainHypercubeLock {
+    let mut pair = primary.clone();
+    pair.domain_id = "python_receta".to_string();
+    pair.noise_mask = NoiseBitmask1024 {
+        words: [0; NOISE_MASK_WORDS],
+    };
+    pair.quorum_k = 1;
+    pair
+}
+
+fn rejecting_python_receta(primary: &DomainHypercubeLock) -> DomainHypercubeLock {
+    let mut pair = empty_python_receta(primary);
+    pair.noise_mask.words[0] = 1;
+    pair.lo_dilated.data[0] = 5.0;
+    pair.hi_dilated.data[0] = 6.0;
+    pair
+}
+
+fn app_with_pair(
+    embedder: Arc<dyn BatchEmbedderClient>,
+    pair: DomainHypercubeLock,
+) -> axum::Router {
+    let primary = python_lock(0.5);
+    let registry = Arc::new(HotRegistry::from_locks([primary, pair]));
+    router(Arc::new(ProxyAppState {
+        registry,
+        embedder,
+        upstream: Arc::new(MockUpstreamForwarder),
+        mock_upstream: Arc::new(MockUpstreamForwarder),
+        default_domain: "python".to_string(),
+        max_telemetry_coords: 4,
+    }))
+}
+
+fn chat_body(content: &str) -> Body {
+    Body::from(format!(
+        r#"{{"messages":[{{"role":"user","content":"{content}"}}],"domain_id":"python","upstream":{{"provider":"mock"}}}}"#
+    ))
+}
+
+#[tokio::test]
+async fn mock_embedder_skips_pairwise_unless_the_prompt_is_the_breach_sentinel() {
+    let primary = python_lock(0.5);
+    let centroid = primary.centroid;
+    let app = app_with_pair(
+        Arc::new(MockBatchEmbedder {
+            pass_vector: centroid,
+            breach_vector: centroid,
+        }),
+        rejecting_python_receta(&primary),
+    );
+    let (pass_status, _, pass_body) = oneshot(
+        app.clone(),
+        Request::builder()
+            .method("POST")
+            .uri("/api/v1/chat")
+            .header("content-type", "application/json")
+            .body(chat_body(
+                "Cómo implementar un generador con yield en Python",
+            ))
+            .unwrap(),
+    )
+    .await;
+    assert_eq!(pass_status, StatusCode::OK, "{pass_body}");
+    assert!(pass_body.contains("chat.completion.chunk"), "{pass_body}");
+
+    let (breach_status, _, breach_body) = oneshot(
+        app,
+        Request::builder()
+            .method("POST")
+            .uri("/api/v1/chat")
+            .header("content-type", "application/json")
+            .body(chat_body("BREACH"))
+            .unwrap(),
+    )
+    .await;
+    assert_eq!(breach_status, StatusCode::FORBIDDEN, "{breach_body}");
+    let breach: serde_json::Value = serde_json::from_str(&breach_body).expect(&breach_body);
+    assert_eq!(
+        breach["error"]["telemetry"]["failing_tier"],
+        "L3_PAIRWISE_QUORUM"
+    );
+    assert_eq!(
+        breach["error"]["telemetry"]["breaching_pair_lock"],
+        "python_receta"
+    );
+}
+
+struct FixedEmbedder(AlignedVec1024);
+
+#[async_trait]
+impl BatchEmbedderClient for FixedEmbedder {
+    async fn embed_batch_f32(&self, texts: &[&str]) -> Result<Vec<AlignedVec1024>, String> {
+        Ok(texts.iter().map(|_| self.0).collect())
+    }
+}
+
+#[tokio::test]
+async fn empty_discriminative_mask_does_not_false_breach_an_in_domain_prompt() {
+    let primary = python_lock(0.5);
+    let app = app_with_pair(
+        Arc::new(FixedEmbedder(primary.centroid)),
+        empty_python_receta(&primary),
+    );
+    let (status, _, body) = oneshot(
+        app,
+        Request::builder()
+            .method("POST")
+            .uri("/api/v1/chat")
+            .header("content-type", "application/json")
+            .body(chat_body("hello kernel"))
+            .unwrap(),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+}
+
+#[tokio::test]
+async fn non_mock_embedder_still_fail_closes_a_discriminative_pairwise_lock() {
+    let primary = python_lock(0.5);
+    let app = app_with_pair(
+        Arc::new(FixedEmbedder(primary.centroid)),
+        rejecting_python_receta(&primary),
+    );
+    let (status, _, body) = oneshot(
+        app,
+        Request::builder()
+            .method("POST")
+            .uri("/api/v1/chat")
+            .header("content-type", "application/json")
+            .body(chat_body("hello kernel"))
+            .unwrap(),
+    )
+    .await;
+    assert_eq!(status, StatusCode::FORBIDDEN, "{body}");
+    assert!(body.contains("L3_PAIRWISE_QUORUM"), "{body}");
+}
+
+fn tight_around_centroid(mut lock: DomainHypercubeLock) -> DomainHypercubeLock {
+    for dim in 0..lock.centroid.data.len() {
+        let center = lock.centroid.data[dim];
+        lock.lo_dilated.data[dim] = center - 0.02;
+        lock.hi_dilated.data[dim] = center + 0.02;
+    }
+    lock
+}
+
+#[tokio::test]
+async fn permutation_noise_breaches_spectral_quorum_on_an_in_domain_embedding() {
+    let primary = tight_around_centroid(python_lock(0.5));
+    let centroid = primary.centroid;
+    let app = router(Arc::new(ProxyAppState {
+        registry: Arc::new(HotRegistry::from_locks([primary])),
+        embedder: Arc::new(FixedEmbedder(centroid)),
+        upstream: Arc::new(MockUpstreamForwarder),
+        mock_upstream: Arc::new(MockUpstreamForwarder),
+        default_domain: "python".to_string(),
+        max_telemetry_coords: 4,
+    }));
+    let (status, _, body) = oneshot(
+        app,
+        Request::builder()
+            .method("POST")
+            .uri("/api/v1/chat")
+            .header("content-type", "application/json")
+            .body(chat_body(
+                "Python asyncio event loop optimization with PERMUTATION_NOISE coordinate drift.",
+            ))
+            .unwrap(),
+    )
+    .await;
+    assert_eq!(status, StatusCode::FORBIDDEN, "{body}");
+    let breach: serde_json::Value = serde_json::from_str(&body).expect(&body);
+    assert_eq!(breach["failing_tier"], "L3_SPECTRAL_QUORUM", "{body}");
+    assert_eq!(breach["l3"]["passed"], false);
+}
+
+#[tokio::test]
+async fn stored_python_lock_spectral_marker_stays_above_l1_and_misses_quorum() {
+    let uri = concat!(env!("CARGO_MANIFEST_DIR"), "/../../data/sf-lancedb");
+    if !std::path::Path::new(uri)
+        .join("domain_hypercubes.lance")
+        .exists()
+    {
+        return;
+    }
+    let registry = sf_storage::HotRegistry::load_from_lancedb(uri, sf_storage::TABLE_NAME)
+        .await
+        .expect("registry");
+    let lock = registry.get("python").expect("python");
+    let vector = sf_proxy::project_spectral_drift(&lock);
+    let cosine = sf_kernels::cosine_similarity_1024(&vector, &lock.centroid);
+    let l3 = sf_kernels::evaluate_l3_gate(
+        &vector,
+        &lock,
+        sf_kernels::L3InspectionMode::ModeCSpectralQuorum,
+        0,
+    );
+    assert!(
+        cosine >= lock.l1_cosine_threshold,
+        "cosine {cosine} threshold {}",
+        lock.l1_cosine_threshold
+    );
+    assert!(
+        !l3.passed,
+        "votes {}/{}",
+        l3.affirmative_votes, l3.required_votes
+    );
+    assert!(l3.affirmative_votes < lock.quorum_k);
 }

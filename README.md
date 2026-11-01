@@ -109,9 +109,10 @@ By default, `sf-proxy` listens on `http://127.0.0.1:8088`. It loads the calibrat
 cd frontend
 pnpm install
 pnpm test
+pnpm test:e2e
 pnpm dev
 ```
-Open `http://127.0.0.1:5173` in your browser.
+Open `http://127.0.0.1:5173` in your browser. `pnpm test:e2e` drives that page with Playwright and expects `sf-proxy` on `:8088`.
 
 ---
 
@@ -120,7 +121,7 @@ Open `http://127.0.0.1:5173` in your browser.
 The frontend playground provides full interactive control and real-time visualization of the containment gateway:
 
 - **Live Chat & Streaming SSE**: Valid prompts (`PASS`) stream LLM responses in real-time.
-- **Visual Breach Diagnostics (`BreachCard`)**: On HTTP 403, displays the failing tier (`L1_CENTROID_COSINE`, `L2_CLAUSE_GATE`, or `L3_SPECTRAL_QUORUM`), cosine proximity bar, the exact breached clause text/index, and in-box votes vs. Quorum $K$.
+- **Visual Breach Diagnostics (`BreachCard`)**: On HTTP 403, displays the failing tier (`L1_CENTROID_COSINE`, `L2_CLAUSE_GATE`, `L3_SPECTRAL_QUORUM`, or `L3_PAIRWISE_QUORUM`), cosine proximity bar, the exact breached clause text/index, and in-box votes vs. Quorum $K$. A pairwise envelope names the lock and clause.
 - **Live Tuning Panel**: Ephemeral overrides for the next request without altering persistent LanceDB records:
   - *L1 cosine threshold* (0.00 – 1.00)
   - *L2 clause threshold* (0.00 – 1.00)

@@ -39,6 +39,9 @@
 
 # Logs & scratch output
 *.log
+.sf_tei_mps.pid
+__pycache__/
+*.py[cod]
 out/
 tmp/
 temp/

@@ -1,9 +1,8 @@
 # TASK SPECIFICATION: RESTORING `ddi-fw` MATHEMATICAL DETERMINISM & PAIRWISE CONTAINMENT
 
-> ⏸️ **ESTADO: EN PAUSA (PAUSED)**
-> **Fecha de Pausa**: 2026-10-31
-> **Motivo**: Pausado por instrucción explícita del usuario hasta nuevo aviso.
-> **Restricción**: Queda prohibida la ejecución, avance o implementación de cualquiera de las fases de este roadmap hasta indicación humana contraria.
+> 🚀 **ESTADO: ACTIVO / EN EJECUCIÓN**
+> **Fecha de Activación**: 2026-11-01
+> **Contexto de Infraestructura**: Embedder BAAI/bge-m3 corriendo nativo en Apple M4 Metal GPU (`mps`) en `127.0.0.1:8080` (drop-in reemplazo de Docker CPU).
 
 
 ## 1. Project Context & Current State

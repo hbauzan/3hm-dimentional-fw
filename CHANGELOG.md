@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Native Apple Silicon embedder: on Darwin arm64, `setup.sh` stops Docker `sf-tei` and serves `BAAI/bge-m3` from `tools/bge_m3_mps_server.py` (`uv`, Metal `mps`, `torch.float32`) on `127.0.0.1:8080`. `GET /health` and `POST /embed` stay drop-in compatible with `TeiHttpEmbedder`.
 - Option 2C **ClauseSegmenter**: commas and trilingual discourse connectors split piggybacked clauses, and a clause longer than 14 words falls back to a window of 10 with stride 5.
 - Canonical calibration (`calibrate_canonical_pairs`) builds 11 domain locks and 55 **PairwiseDifferentialLock** rows from `BAAI/bge-m3` embeddings. A named canonical domain must pass its primary lock and every pairwise lock that names it. A pairwise failure is HTTP 403 `L3_PAIRWISE_QUORUM` and names the breaching lock.
 - Chat overrides clamp `quorum_k` into `[1, active_count]`. The playground leaves overrides off until the operator arms them.

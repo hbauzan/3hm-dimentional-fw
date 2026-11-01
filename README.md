@@ -138,25 +138,38 @@ The frontend playground provides full interactive control and real-time visualiz
 
 ---
 
-## Real TEI Embedder (BAAI/bge-m3)
+## Real BGE-M3 Embedder
 
-By default, the gateway operates with the zero-dependency deterministic `mock` embedder. To evaluate prompts against real 1024-dimensional embeddings:
+By default, the gateway operates with the zero-dependency deterministic `mock` embedder. Live 1024-dimensional embeddings use the same `POST /embed` contract on `127.0.0.1:8080`.
 
-1. **Launch Text Embeddings Inference (TEI) via Docker Compose**:
-   ```bash
-   docker compose -f docker-compose.tei.yml up -d
-   ```
-2. **Configure `.env`**:
-   ```bash
-   SF_EMBEDDER=http
-   TEI_HTTP_URL=http://127.0.0.1:8080
-   SF_DEFAULT_DOMAIN=python
-   ```
-3. **Calibrate the eleven canonical domains and the 55 pairwise locks with live TEI embeddings**:
-   ```bash
-   cargo run -p sf-bench --bin calibrate_canonical_pairs
-   ```
-   `calibrate_real_domain` still writes one domain lock and keeps the other rows.
+**macOS Darwin arm64.** `setup.sh` stops the Docker container `sf-tei` and runs the native Metal daemon (`torch.float32`, device `mps`):
+
+```bash
+uv run tools/bge_m3_mps_server.py
+```
+
+Option 11 of `./setup.sh` starts and stops that process (`.sf_tei_mps.pid`, `sf_tei_mps.log`). `GET /health` reports `"device": "mps"`.
+
+**Other hosts.** Keep the Docker TEI container:
+
+```bash
+docker compose -f docker-compose.tei.yml up -d
+```
+
+**Configure `.env`:**
+
+```bash
+SF_EMBEDDER=http
+TEI_HTTP_URL=http://127.0.0.1:8080
+SF_DEFAULT_DOMAIN=python
+```
+
+**Calibrate the eleven canonical domains and the 55 pairwise locks with live embeddings:**
+
+```bash
+cargo run -p sf-bench --bin calibrate_canonical_pairs
+```
+`calibrate_real_domain` still writes one domain lock and keeps the other rows.
 *(Or use `./setup.sh` -> Option 11 to switch embedders and Option 7 -> 2 to calibrate automatically).*
 
 ---

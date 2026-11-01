@@ -1,6 +1,6 @@
 # Architecture spec — sf-core
 
-Toolchain: Cargo only. Active compiler pin: Rust `1.94.1` (`rust-toolchain.toml`). Crate MSRV `1.91` matches `lancedb 0.40.0` / `lance 13.0.0`. Arrow crates are exact `=58.4.1` (`=58.0.0` does not resolve: DataFusion 54 requires `arrow-schema ^58.3.0`) and are imported from `sf-storage` only as `lancedb::arrow::{arrow_array, arrow_buffer, arrow_schema}`.
+Toolchain: Cargo for the Rust workspace. The Darwin arm64 embedder is the PEP 723 script `tools/bge_m3_mps_server.py`, run only with `uv`. The frontend stays on `pnpm`. Active compiler pin: Rust `1.94.1` (`rust-toolchain.toml`). Crate MSRV `1.91` matches `lancedb 0.40.0` / `lance 13.0.0`. Arrow crates are exact `=58.4.1` (`=58.0.0` does not resolve: DataFusion 54 requires `arrow-schema ^58.3.0`) and are imported from `sf-storage` only as `lancedb::arrow::{arrow_array, arrow_buffer, arrow_schema}`.
 
 ## ADR-001 — RFC-003 numerical representation
 
@@ -84,6 +84,10 @@ A pass returns the upstream body as `text/event-stream` and does not buffer the 
 Request overrides replace `l1_cosine_threshold`, `l2_clause_threshold`, `quorum_k`, and `epsilon` on a clone. An epsilon override rebuilds dilated bounds from the stored epsilon: raw bound = dilated bound ± stored epsilon, then dilate again with the request epsilon. The registry lock is left unchanged.
 
 The upstream body is OpenAI chat-completions JSON (`model`, `messages`, `stream: true`). A per-request base that already ends in `/v1` or `/openai` joins `/chat/completions`. Any other host joins `/v1/chat/completions`. `api_key` is sent as `Authorization: Bearer` and is omitted from the JSON body. `/v1/chat/completions` on `sf-proxy` keeps its process-wide base (`{base}/v1/chat/completions`) and its breach envelope (`L1_CATEGORICAL_COSINE`, `L2_SLIDING_WINDOW`, `L3_DDI_INSPECTOR`).
+
+## Embedder runtime
+
+`TeiHttpEmbedder` posts `{"inputs": [...], "normalize": true}` to `POST /embed` and reads a JSON matrix of 1024 binary32 coordinates. On Darwin arm64 the listener is `tools/bge_m3_mps_server.py` at `TEI_HTTP_URL` (default `http://127.0.0.1:8080`), device `mps`, dtype `torch.float32` (RFC-003). `setup.sh` stops container `sf-tei` before that bind and records the process in `.sf_tei_mps.pid`. Other hosts keep `docker-compose.tei.yml`. The Rust client is unchanged.
 
 ## Gateway daemon
 

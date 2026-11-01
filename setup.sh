@@ -31,6 +31,8 @@ LOG_PROXY="sf_proxy.log"
 LOG_SPA="sf_spa.log"
 LOG_UI="sf_ui.log"
 LOG_FILE="3hm_dev.log"
+LOG_TEI_MPS="sf_tei_mps.log"
+PID_FILE_TEI_MPS=".sf_tei_mps.pid"
 
 SUPPORTED_OS_LABEL="macOS (Darwin arm64/x86_64)"
 
@@ -107,7 +109,7 @@ import os, sys, subprocess
 workdir, logfile, *cmd = sys.argv[1:]
 os.chdir(workdir)
 log = open(logfile, "a", buffering=1)
-subprocess.Popen(
+proc = subprocess.Popen(
     cmd,
     stdin=subprocess.DEVNULL,
     stdout=log,
@@ -115,6 +117,12 @@ subprocess.Popen(
     start_new_session=True,
     close_fds=True,
 )
+pid_path = os.environ.get("SF_LAUNCH_PID_FILE", "").strip()
+if pid_path:
+    with open(pid_path, "w", encoding="utf-8") as handle:
+        handle.write(f"{proc.pid}\n")
+        handle.flush()
+        os.fsync(handle.fileno())
 PY
 }
 
@@ -453,9 +461,29 @@ probe_sf_ui() {
     fi
 }
 
-# 4. Embedder TEI bge-m3 (:8080)
+# 4. Embedder bge-m3 (:8080) — Metal MPS on Darwin arm64, Docker TEI elsewhere
+use_native_mps_embedder() {
+    [ "$(uname -s)" = "Darwin" ] && [ "$(uname -m)" = "arm64" ]
+}
+
+embedder_runtime_label() {
+    if use_native_mps_embedder; then
+        echo "mps"
+    else
+        echo "docker"
+    fi
+}
+
 tei_container_running() {
     docker ps --filter "name=sf-tei" --filter "status=running" -q 2>/dev/null | grep -q .
+}
+
+tei_native_running() {
+    local pid
+    [ -f "$PID_FILE_TEI_MPS" ] || return 1
+    pid="$(tr -d '[:space:]' < "$PID_FILE_TEI_MPS" 2>/dev/null || true)"
+    [ -n "$pid" ] || return 1
+    kill -0 "$pid" 2>/dev/null
 }
 
 tei_health_ok() {
@@ -466,7 +494,9 @@ tei_health_ok() {
 
 probe_tei() {
     local running=0 health=0 port=0
-    tei_container_running && running=1
+    if tei_native_running || tei_container_running; then
+        running=1
+    fi
     tei_health_ok && health=1
     port_listening "$TEI_PORT" && port=1
 
@@ -477,6 +507,26 @@ probe_tei() {
     else
         echo "sick"
     fi
+}
+
+stop_native_mps_process() {
+    local pid i
+    [ -f "$PID_FILE_TEI_MPS" ] || return 0
+    pid="$(tr -d '[:space:]' < "$PID_FILE_TEI_MPS" 2>/dev/null || true)"
+    if [ -n "$pid" ] && kill -0 "$pid" 2>/dev/null; then
+        kill -TERM "$pid" 2>/dev/null || true
+        i=0
+        while [ "$i" -lt 25 ]; do
+            kill -0 "$pid" 2>/dev/null || break
+            sleep 0.2
+            i=$((i + 1))
+        done
+        if kill -0 "$pid" 2>/dev/null; then
+            kill -KILL "$pid" 2>/dev/null || true
+            sleep 0.2
+        fi
+    fi
+    rm -f "$PID_FILE_TEI_MPS"
 }
 
 describe_service_state() {
@@ -557,11 +607,11 @@ stop_all_services() {
 
     if [ "$(probe_tei)" != "down" ]; then
         echo ""
-        read -p "¿Deseas detener también el contenedor TEI (bge-m3 en :${TEI_PORT})? [y/N]: " stop_tei_choice
+        read -p "¿Deseas detener también el embedder bge-m3 en :${TEI_PORT} (Metal MPS o contenedor TEI)? [y/N]: " stop_tei_choice
         if [[ "$stop_tei_choice" =~ ^[Yy]$ ]]; then
             stop_tei_daemon
         else
-            echo -e "  ${DIM}Contenedor TEI preservado en segundo plano.${RESET}"
+            echo -e "  ${DIM}Embedder bge-m3 preservado en segundo plano.${RESET}"
         fi
     fi
 
@@ -672,12 +722,12 @@ start_sf_ui_background() {
 
 wait_tei_healthy() {
     local i filled empty bar pct
-    local total=60
-    echo -e "  ${DIM}Esperando a que TEI bge-m3 responda en ${TEI_URL}/health…${RESET}"
+    local total="${1:-60}"
+    echo -e "  ${DIM}Esperando a que el embedder bge-m3 responda en ${TEI_URL}/health…${RESET}"
     for i in $(seq 1 "$total"); do
         if tei_health_ok; then
             bar="$(printf '█%.0s' $(seq 1 28))"
-            echo -ne "\r  [${GREEN}${bar}${RESET}]  ${BOLD}100%${RESET}  ${GREEN}${BOLD}EMBEDDER TEI BGE-M3 ACTIVO (:8080)${RESET}          \n"
+            echo -ne "\r  [${GREEN}${bar}${RESET}]  ${BOLD}100%${RESET}  ${GREEN}${BOLD}EMBEDDER BGE-M3 ACTIVO (:${TEI_PORT})${RESET}          \n"
             return 0
         fi
         filled=$(( i * 28 / total ))
@@ -691,8 +741,42 @@ wait_tei_healthy() {
     return 1
 }
 
+start_native_mps_embedder() {
+    local pid_path
+    if ! command -v uv >/dev/null 2>&1; then
+        echo -e "  ${RED}❌ uv no está instalado en PATH.${RESET}"
+        return 1
+    fi
+    if tei_container_running; then
+        echo -e "  ${YELLOW}▶ Deteniendo contenedor Docker sf-tei para liberar :${TEI_PORT}...${RESET}"
+        docker compose -f docker-compose.tei.yml down 2>/dev/null || true
+    fi
+    if tei_native_running && tei_health_ok; then
+        echo -e "  ${GREEN}✓ Embedder Metal MPS ya está activo en ${TEI_URL}.${RESET}"
+        return 0
+    fi
+    if tei_native_running || port_listening "$TEI_PORT"; then
+        stop_native_mps_process
+        kill_pids_on_port "$TEI_PORT" "embedder bge-m3"
+    fi
+    rm -f "$PID_FILE_TEI_MPS"
+    echo -e "${BLUE}▶ Iniciando embedder nativo BGE-M3 (Metal MPS, torch.float32)...${RESET}"
+    echo -e "  ${DIM}«El vigía deja la máquina virtual y mira con los núcleos Metal.»${RESET}"
+    pid_path="$(pwd)/${PID_FILE_TEI_MPS}"
+    SF_LAUNCH_PID_FILE="$pid_path" launch_detached "." "$LOG_TEI_MPS" uv run tools/bge_m3_mps_server.py
+    if [ ! -s "$PID_FILE_TEI_MPS" ]; then
+        echo -e "  ${RED}❌ No se pudo registrar el PID en ${PID_FILE_TEI_MPS}. Revisa ${LOG_TEI_MPS}.${RESET}"
+        return 1
+    fi
+    wait_tei_healthy 240
+}
+
 start_tei_daemon() {
-    if ! command -v docker &> /dev/null; then
+    if use_native_mps_embedder; then
+        start_native_mps_embedder
+        return $?
+    fi
+    if ! command -v docker >/dev/null 2>&1; then
         echo -e "  ${RED}❌ Docker no está instalado en PATH.${RESET}"
         return 1
     fi
@@ -706,9 +790,13 @@ start_tei_daemon() {
 }
 
 stop_tei_daemon() {
-    echo -e "  ${YELLOW}▶ Deteniendo contenedor TEI bge-m3...${RESET}"
+    echo -e "  ${YELLOW}▶ Deteniendo embedder bge-m3 (Metal MPS y contenedor TEI)...${RESET}"
+    stop_native_mps_process
     docker compose -f docker-compose.tei.yml down 2>/dev/null || true
-    echo -e "  ${GREEN}✓ Contenedor TEI detenido.${RESET}"
+    if port_listening "$TEI_PORT"; then
+        kill_pids_on_port "$TEI_PORT" "embedder bge-m3"
+    fi
+    echo -e "  ${GREEN}✓ Embedder bge-m3 detenido. Puerto :${TEI_PORT} liberado.${RESET}"
 }
 
 open_browser() {
@@ -990,7 +1078,7 @@ manage_lancedb_menu() {
             local tei_state
             tei_state="$(probe_tei)"
             if [ "$tei_state" != "healthy" ]; then
-                echo -e "${YELLOW}▶ TEI (:8080) inactivo. Levantando contenedor Docker...${RESET}"
+                echo -e "${YELLOW}▶ Embedder bge-m3 (:${TEI_PORT}) inactivo. Levantando runtime $(embedder_runtime_label)...${RESET}"
                 if ! start_tei_daemon; then
                     echo -e "${RED}❌ TEI no está disponible para calibración.${RESET}"
                     read -p "Presiona Enter..."
@@ -1043,7 +1131,7 @@ clean_artifacts() {
         echo -e "${YELLOW}▶ Ejecutando cargo clean...${RESET}"
         cargo clean
         echo -e "${YELLOW}▶ Limpiando logs y archivos temporales...${RESET}"
-        rm -f "$LOG_FILE" "$LOG_PROXY" "$LOG_SPA" "$LOG_UI"
+        rm -f "$LOG_FILE" "$LOG_PROXY" "$LOG_SPA" "$LOG_UI" "$LOG_TEI_MPS" "$PID_FILE_TEI_MPS"
         rm -rf /tmp/sf-ui-lancedb-* /tmp/sf-loadbench-lance-* 2>/dev/null || true
         rm -rf frontend/node_modules/.vite 2>/dev/null || true
         echo -e "  ${GREEN}✓ Cubierta del Sea Monkey limpia y reluciente.${RESET}"
@@ -1057,12 +1145,13 @@ follow_logs() {
     echo -e "\n${MAGENTA}${BOLD}======================================================================${RESET}"
     echo -e "${MAGENTA}${BOLD}📜 MONITOR DE LOGS EN VIVO${RESET}"
     echo -e "${MAGENTA}${BOLD}======================================================================${RESET}"
-    echo -e "  ${BOLD}1)${RESET} Logs Combinados (Gateway, SPA y Studio)"
+    echo -e "  ${BOLD}1)${RESET} Logs Combinados (Gateway, SPA, Studio y Embedder)"
     echo -e "  ${BOLD}2)${RESET} Solo Gateway sf-proxy (${LOG_PROXY})"
     echo -e "  ${BOLD}3)${RESET} Solo Frontend SPA (${LOG_SPA})"
     echo -e "  ${BOLD}4)${RESET} Solo Diagnostic Studio (${LOG_UI})"
+    echo -e "  ${BOLD}5)${RESET} Solo Embedder bge-m3 (${LOG_TEI_MPS})"
     echo -e "  ${BOLD}0)${RESET} Volver al menú"
-    read -p "Selecciona log a monitorear [1-4, default 1]: " log_choice
+    read -p "Selecciona log a monitorear [1-5, default 1]: " log_choice
 
     local target_files=()
     case "$log_choice" in
@@ -1078,12 +1167,16 @@ follow_logs() {
             touch "$LOG_UI"
             target_files=("$LOG_UI")
             ;;
+        5)
+            touch "$LOG_TEI_MPS"
+            target_files=("$LOG_TEI_MPS")
+            ;;
         0)
             return
             ;;
         *)
-            touch "$LOG_PROXY" "$LOG_SPA" "$LOG_UI" "$LOG_FILE"
-            target_files=("$LOG_PROXY" "$LOG_SPA" "$LOG_UI" "$LOG_FILE")
+            touch "$LOG_PROXY" "$LOG_SPA" "$LOG_UI" "$LOG_FILE" "$LOG_TEI_MPS"
+            target_files=("$LOG_PROXY" "$LOG_SPA" "$LOG_UI" "$LOG_FILE" "$LOG_TEI_MPS")
             ;;
     esac
 
@@ -1124,8 +1217,8 @@ manage_environment() {
         done
         echo ""
         echo -e "  ${DIM}1) Alternar SF_EMBEDDER entre 'mock', 'http' y 'grpc'${RESET}"
-        echo -e "  ${DIM}2) Iniciar Contenedor TEI (BAAI/bge-m3 en :${TEI_PORT})${RESET}"
-        echo -e "  ${DIM}3) Detener Contenedor TEI${RESET}"
+        echo -e "  ${DIM}2) Iniciar embedder bge-m3 en :${TEI_PORT} ($(embedder_runtime_label))${RESET}"
+        echo -e "  ${DIM}3) Detener embedder bge-m3 (:${TEI_PORT})${RESET}"
         echo -e "  ${DIM}4) Abrir .env con el editor predeterminado${RESET}"
         read -p "  Selecciona opción [1-4, o Enter para volver]: " eopt
         case "$eopt" in
@@ -1313,7 +1406,7 @@ show_menu() {
     echo -e "   • Gateway sf-proxy (:8088):       $(render_state_badge "$proxy_state")"
     echo -e "   • Frontend SPA (:5173):           $(render_state_badge "$spa_state")"
     echo -e "   • Diagnostic Studio (:3000):      $(render_state_badge "$ui_state")"
-    echo -e "   • Embedder TEI bge-m3 (:8080):    $(render_state_badge "$tei_state") [mode: ${SF_EMBEDDER:-mock}]"
+    echo -e "   • Embedder bge-m3 (:${TEI_PORT}):     $(render_state_badge "$tei_state") [mode: ${SF_EMBEDDER:-mock} / $(embedder_runtime_label)]"
 
     echo -e "${CYAN}${BOLD}──────────────────────────────────────────────────────────────────────${RESET}"
     echo -e " ${GREEN}${BOLD}1. 🚀 Desplegar Stack Completo${RESET} ${DIM}(Gateway :8088 + SPA :5173 + Auto-seed LanceDB)${RESET}"

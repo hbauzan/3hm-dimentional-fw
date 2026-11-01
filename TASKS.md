@@ -1,6 +1,6 @@
 ---
 task_id: "TASK-003"
-status: "PENDING"
+status: "DONE"
 assigned_architect: "maximum-architect-agent"
 protocol: "transparent-dev-protocol"
 title: "Native Apple M4 Metal GPU (mps) BGE-M3 Embedder Daemon"
@@ -19,6 +19,6 @@ Replace the slow Docker CPU TEI container (`sf-tei`) on macOS Apple Silicon with
 - **Exclusive Authorship**: Sole author and collaborator in Git commits is `hbauzan` (`Héctor Andrés Bauzán Saavedra` <`hbauzan@gmail.com`>). No AI or bot co-authorship trailers.
 
 ## 3. Tracer Bullet Slices
-- [ ] **Tracer Bullet 1 (Native Metal Embedder Daemon)**: Create `tools/bge_m3_mps_server.py` with inline PEP 723 `uv` metadata, strict `torch.float32`, startup Metal shader warmup, and drop-in `/health` and `/embed` endpoints.
-- [ ] **Tracer Bullet 2 (Docker TEI Decommissioning & setup.sh Integration)**: Stop Docker container `sf-tei`, reclaim port `127.0.0.1:8080`, and update `setup.sh` to start/stop/probe the native background daemon (`.sf_tei_mps.pid`, `sf_tei_mps.log`) on macOS Darwin arm64.
-- [ ] **Tracer Bullet 3 (Deterministic Verification Gates)**: Pass Gate 1 (Docker down), Gate 2 (`/health` mps), Gate 3 (unit norm + latency < 30 ms benchmark), and Gate 4 (`cargo test --workspace --locked`).
+- [x] **Tracer Bullet 1 (Native Metal Embedder Daemon)**: Create `tools/bge_m3_mps_server.py` with inline PEP 723 `uv` metadata, strict `torch.float32`, startup Metal shader warmup, and drop-in `/health` and `/embed` endpoints.
+- [x] **Tracer Bullet 2 (Docker TEI Decommissioning & setup.sh Integration)**: Stop Docker container `sf-tei`, reclaim port `127.0.0.1:8080`, and update `setup.sh` to start/stop/probe the native background daemon (`.sf_tei_mps.pid`, `sf_tei_mps.log`) on macOS Darwin arm64.
+- [x] **Tracer Bullet 3 (Deterministic Verification Gates)**: Pass Gate 1 (Docker down), Gate 2 (`/health` mps), Gate 3 (unit norm + latency < 30 ms benchmark), and Gate 4 (`cargo test --workspace --locked`).

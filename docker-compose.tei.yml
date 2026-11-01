@@ -1,3 +1,5 @@
+# Darwin arm64: setup.sh runs tools/bge_m3_mps_server.py and does not start this container.
+# Other hosts keep this Compose service as the BGE-M3 embedder on :8080.
 services:
   tei:
     image: ghcr.io/huggingface/text-embeddings-inference:cpu-1.6

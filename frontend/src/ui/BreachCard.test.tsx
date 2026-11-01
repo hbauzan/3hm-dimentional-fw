@@ -1,7 +1,7 @@
 import { render, screen, within } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
-import type { ChatBreachDto } from '../domain/types.ts'
-import { BreachCard } from './BreachCard.tsx'
+import { BreachCard, PassCard } from './BreachCard.tsx'
+import type { ChatBreachDto, ChatTelemetryDto } from '../domain/types.ts'
 
 const l1: ChatBreachDto = {
   decision: 'BREACH',
@@ -33,6 +33,19 @@ const l3: ChatBreachDto = {
   l3: { evaluated: true, passed: false, affirmative_votes: 12, required_votes: 103 },
 }
 
+const passDto: ChatTelemetryDto = {
+  decision: 'PASS',
+  failing_tier: 'NONE',
+  l1: { passed: true, cosine: 0.5884, threshold: 0.5 },
+  l2: {
+    passed: true,
+    breached_clause_index: 1,
+    clause_cosine: 0.5005,
+    threshold: 0.5,
+  },
+  l3: { evaluated: true, passed: true, affirmative_votes: 842, required_votes: 103 },
+}
+
 describe('BreachCard', () => {
   it('shows the L1 cosine gate and skips the heads that did not run', () => {
     render(<BreachCard breach={l1} />)
@@ -56,5 +69,15 @@ describe('BreachCard', () => {
     render(<BreachCard breach={l3} />)
     expect(screen.getByText('Affirmative votes 12 / K 103')).toBeTruthy()
     expect(screen.getByText('L3_SPECTRAL_QUORUM')).toBeTruthy()
+  })
+
+  it('shows telemetry values when gate passes (PassCard)', () => {
+    render(<PassCard telemetry={passDto} />)
+    const card = screen.getByRole('article', { name: 'Semantic containment pass' })
+    expect(within(card).getByText('[SEMANTIC CONTAINMENT PASS]')).toBeTruthy()
+    expect(within(card).getByText('ALL HEADS CLEAR')).toBeTruthy()
+    expect(within(card).getByText(/Cosine: 0\.5884 > Threshold: 0\.5000/)).toBeTruthy()
+    expect(within(card).getByText(/Lowest Clause Cosine: 0\.5005 > Threshold: 0\.5000/)).toBeTruthy()
+    expect(within(card).getByText('Affirmative votes 842 / K 103')).toBeTruthy()
   })
 })

@@ -137,6 +137,25 @@ impl HotRegistry {
     pub fn locks(&self) -> Vec<Arc<DomainHypercubeLock>> {
         self.load().locks().to_vec()
     }
+
+    /// Pairwise locks whose id names `domain_id` on one side. Empty unless `domain_id` is canonical.
+    pub fn pairwise_locks_for(&self, domain_id: &str) -> Vec<Arc<DomainHypercubeLock>> {
+        if !crate::is_canonical_domain(domain_id) {
+            return Vec::new();
+        }
+        let snapshot = self.load();
+        let mut found = Vec::new();
+        for lock in snapshot.locks() {
+            let Some((left, right)) = crate::pair_lock_sides(&lock.domain_id) else {
+                continue;
+            };
+            if left == domain_id || right == domain_id {
+                found.push(Arc::clone(lock));
+            }
+        }
+        found.sort_by(|left, right| left.domain_id.cmp(&right.domain_id));
+        found
+    }
 }
 
 pub struct LockMeta<'a> {

@@ -1,7 +1,10 @@
 //! Multi-domain routing. A named domain evaluates that lock.
 //! `X-Semantic-Domain: *` defaults to AnyAllowlist. `X-SF-Wildcard-Mode: all` requires every lock.
 
-use crate::cascade::evaluate_three_tier_cascade;
+use crate::cascade::{
+    evaluate_pairwise_containment, evaluate_three_tier_cascade, pairwise_breach_envelope,
+    PairwiseBreachEnvelope,
+};
 use crate::telemetry::BreachErrorEnvelope;
 use axum::http::HeaderMap;
 use sf_kernels::{cosine_similarity_1024, AlignedVec1024, DomainHypercubeLock, L3InspectionMode};
@@ -18,10 +21,12 @@ struct LockSets {
     denylists: Vec<Arc<DomainHypercubeLock>>,
     allowlists: Vec<Arc<DomainHypercubeLock>>,
     require_all_allowlists: bool,
+    named_domain: bool,
 }
 
 pub enum RouteFailure {
     Breach(Box<BreachErrorEnvelope>),
+    Pairwise(Box<PairwiseBreachEnvelope>),
     Route(RouteError),
 }
 
@@ -62,6 +67,7 @@ pub fn evaluate_route(input: RouteInput<'_>) -> Result<u64, Box<RouteFailure>> {
             max_telemetry_coords,
         )
         .map_err(|err| Box::new(RouteFailure::Breach(err)))?;
+        latency = contain_named_domain(&sets, registry, lock, full_prompt, clause_vecs, latency)?;
     }
     if sets.allowlists.is_empty() {
         return Ok(latency);
@@ -77,6 +83,8 @@ pub fn evaluate_route(input: RouteInput<'_>) -> Result<u64, Box<RouteFailure>> {
                 max_telemetry_coords,
             )
             .map_err(|err| Box::new(RouteFailure::Breach(err)))?;
+            latency =
+                contain_named_domain(&sets, registry, lock, full_prompt, clause_vecs, latency)?;
         }
         return Ok(latency);
     }
@@ -90,7 +98,16 @@ pub fn evaluate_route(input: RouteInput<'_>) -> Result<u64, Box<RouteFailure>> {
             l3_mode,
             max_telemetry_coords,
         ) {
-            Ok(ns) => return Ok(ns.max(latency)),
+            Ok(ns) => {
+                return contain_named_domain(
+                    &sets,
+                    registry,
+                    lock,
+                    full_prompt,
+                    clause_vecs,
+                    ns.max(latency),
+                );
+            }
             Err(err) => {
                 let score = cosine_similarity_1024(full_prompt, &lock.centroid);
                 let replace = nearest
@@ -142,6 +159,7 @@ fn lock_sets(
             denylists,
             allowlists,
             require_all_allowlists,
+            named_domain: false,
         });
     }
     let Some(lock) = snapshot.get(requested) else {
@@ -155,12 +173,38 @@ fn lock_sets(
             denylists: vec![lock],
             allowlists: Vec::new(),
             require_all_allowlists: false,
+            named_domain: true,
         })
     } else {
         Ok(LockSets {
             denylists: Vec::new(),
             allowlists: vec![lock],
             require_all_allowlists: false,
+            named_domain: true,
         })
     }
+}
+
+fn contain_named_domain(
+    sets: &LockSets,
+    registry: &HotRegistry,
+    lock: &DomainHypercubeLock,
+    full_prompt: &AlignedVec1024,
+    clause_vecs: &[AlignedVec1024],
+    latency: u64,
+) -> Result<u64, Box<RouteFailure>> {
+    if !sets.named_domain {
+        return Ok(latency);
+    }
+    let pairs = registry.pairwise_locks_for(&lock.domain_id);
+    if pairs.is_empty() {
+        return Ok(latency);
+    }
+    evaluate_pairwise_containment(full_prompt, clause_vecs, &lock.domain_id, &pairs)
+        .map(|()| latency)
+        .map_err(|breach| {
+            Box::new(RouteFailure::Pairwise(Box::new(pairwise_breach_envelope(
+                breach,
+            ))))
+        })
 }

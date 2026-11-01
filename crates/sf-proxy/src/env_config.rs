@@ -40,7 +40,10 @@ pub fn find_env_file() -> Option<PathBuf> {
 
     for candidate in &candidates {
         if candidate.is_file() {
-            return candidate.canonicalize().ok().or_else(|| Some(candidate.clone()));
+            return candidate
+                .canonicalize()
+                .ok()
+                .or_else(|| Some(candidate.clone()));
         }
     }
 
@@ -91,8 +94,7 @@ pub fn parse_env_content(content: &str) -> HashMap<String, String> {
 fn strip_quotes(s: &str) -> String {
     let s = s.trim();
     if s.len() >= 2
-        && ((s.starts_with('"') && s.ends_with('"'))
-            || (s.starts_with('\'') && s.ends_with('\'')))
+        && ((s.starts_with('"') && s.ends_with('"')) || (s.starts_with('\'') && s.ends_with('\'')))
     {
         return s[1..s.len() - 1].to_string();
     }
@@ -166,7 +168,9 @@ fn resolve_provider_info(provider: &str, file_map: &HashMap<String, String>) -> 
             let key_lookup = lookup_first_nonempty(&["GEMINI_API_KEY", "GOOGLE_API_KEY"], file_map);
             let base_url = lookup_first_nonempty(&["GEMINI_BASE_URL"], file_map)
                 .map(|(_, v)| v)
-                .unwrap_or_else(|| "https://generativelanguage.googleapis.com/v1beta/openai".to_string());
+                .unwrap_or_else(|| {
+                    "https://generativelanguage.googleapis.com/v1beta/openai".to_string()
+                });
             let model = lookup_first_nonempty(&["GEMINI_MODEL"], file_map)
                 .map(|(_, v)| v)
                 .unwrap_or_else(|| "gemini-3.8-flash".to_string());
@@ -255,10 +259,12 @@ fn resolve_provider_info(provider: &str, file_map: &HashMap<String, String>) -> 
             }
         }
         "ollama" => {
-            let key_lookup = lookup_first_nonempty(&["OLLAMA_API_KEY", "UPSTREAM_LLM_API_KEY"], file_map);
-            let base_url = lookup_first_nonempty(&["OLLAMA_BASE_URL", "UPSTREAM_LLM_BASE_URL"], file_map)
-                .map(|(_, v)| v)
-                .unwrap_or_else(|| "http://127.0.0.1:11434/v1".to_string());
+            let key_lookup =
+                lookup_first_nonempty(&["OLLAMA_API_KEY", "UPSTREAM_LLM_API_KEY"], file_map);
+            let base_url =
+                lookup_first_nonempty(&["OLLAMA_BASE_URL", "UPSTREAM_LLM_BASE_URL"], file_map)
+                    .map(|(_, v)| v)
+                    .unwrap_or_else(|| "http://127.0.0.1:11434/v1".to_string());
             let model = lookup_first_nonempty(&["OLLAMA_MODEL"], file_map)
                 .map(|(_, v)| v)
                 .unwrap_or_else(|| "llama3".to_string());
@@ -353,7 +359,10 @@ export DEEPSEEK_API_KEY="ds-key"
     fn resolves_groq_and_ollama() {
         let mut map = HashMap::new();
         map.insert("GROQ_API_KEY".to_string(), "gsk_test".to_string());
-        map.insert("UPSTREAM_LLM_BASE_URL".to_string(), "http://localhost:11434".to_string());
+        map.insert(
+            "UPSTREAM_LLM_BASE_URL".to_string(),
+            "http://localhost:11434".to_string(),
+        );
 
         let groq = resolve_provider_info("groq", &map);
         assert!(groq.configured);

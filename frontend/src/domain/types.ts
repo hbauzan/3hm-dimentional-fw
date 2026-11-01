@@ -97,12 +97,17 @@ export interface Tier3Breach {
   required_votes?: number
 }
 
-export interface ChatBreachDto {
-  decision: 'BREACH'
-  failing_tier: FailingTier
+export interface ChatTelemetryDto {
+  decision: 'BREACH' | 'PASS'
+  failing_tier?: FailingTier | string
   l1: Tier1Breach
   l2: Tier2Breach
   l3: Tier3Breach
+}
+
+export type ChatBreachDto = ChatTelemetryDto & {
+  decision: 'BREACH'
+  failing_tier: FailingTier
 }
 
 export type ParseResult<T> = { ok: true; value: T } | { ok: false; message: string }
@@ -116,6 +121,6 @@ export interface SpaSession {
 }
 
 export type ChatOutcome =
-  | { kind: 'pass'; text: string }
+  | { kind: 'pass'; text: string; telemetry?: ChatTelemetryDto }
   | { kind: 'breach'; breach: ChatBreachDto }
   | { kind: 'error'; status: number; message: string }

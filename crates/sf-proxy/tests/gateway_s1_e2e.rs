@@ -432,4 +432,3 @@ async fn chat_mock_upstream_does_not_forward_to_unreachable_network_upstream() {
         "text: {text}"
     );
 }
-

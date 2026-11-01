@@ -24,6 +24,10 @@ The nine BGE-M3 background coordinates cleared by the default mask: 292, 297, 30
 
 The deterministic splitter that yields borrowed clause slices from one prompt.
 
+## PairwiseDifferentialLock
+
+A **DomainHypercubeLock** whose id is `left_right` for two canonical domains. The coordinate envelope belongs to `left`.
+
 ## AnyAllowlist
 
 Wildcard policy for `X-Semantic-Domain: *`. One allowlist must contain the prompt and every clause.

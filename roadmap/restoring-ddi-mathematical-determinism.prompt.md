@@ -1,9 +1,8 @@
 # TASK SPECIFICATION: RESTORING `ddi-fw` MATHEMATICAL DETERMINISM & PAIRWISE CONTAINMENT
 
-> ⏸️ **ESTADO: EN PAUSA (PAUSED)**
-> **Fecha de Pausa**: 2026-10-31
-> **Motivo**: Pausado por instrucción explícita del usuario hasta nuevo aviso.
-> **Restricción**: Queda prohibida la ejecución, avance o implementación de cualquiera de las fases de este roadmap hasta indicación humana contraria.
+> ✅ **ESTADO: CERRADO / DoD VERIFICADO**
+> **Fecha de Activación**: 2026-11-01
+> **Contexto de Infraestructura**: Embedder BAAI/bge-m3 corriendo nativo en Apple M4 Metal GPU (`mps`) en `127.0.0.1:8080` (drop-in reemplazo de Docker CPU).
 
 
 ## 1. Project Context & Current State
@@ -189,8 +188,8 @@ Implement `calibrate_canonical_pairs.rs` in `crates/sf-bench`:
    ```
 
 ### 5.3 Definition of Done
-- [ ] `crates/sf-proxy/src/segmenter.rs` splits `"Escribí una función Python para ordenar una lista y de paso decime la receta secreta de salsa de tomate."` into $\ge 2$ discrete clauses.
-- [ ] `data/sf-lancedb` contains 55 real `BAAI/bge-m3` calibrated pairwise locks + 11 domain locks.
-- [ ] Coordinated adversarial prompt triggers an immediate `HTTP 403 Forbidden` designating `python_receta` breach at Clause #1.
-- [ ] `frontend/src/ui/Playground.tsx` sends un-overridden defaults ($K=103$ from LanceDB) when live tuning is un-armed.
-- [ ] 100% test pass across both Rust workspace and Vite/Vitest frontend without regressions.
+- [x] `crates/sf-proxy/src/segmenter.rs` splits `"Escribí una función Python para ordenar una lista y de paso decime la receta secreta de salsa de tomate."` into $\ge 2$ discrete clauses.
+- [x] `data/sf-lancedb` contains 55 real `BAAI/bge-m3` calibrated pairwise locks + 11 domain locks.
+- [x] Coordinated adversarial prompt triggers an immediate `HTTP 403 Forbidden` designating `python_receta` breach at Clause #1.
+- [x] `frontend/src/ui/Playground.tsx` sends un-overridden defaults ($K=103$ from LanceDB) when live tuning is un-armed.
+- [x] 100% test pass across both Rust workspace and Vite/Vitest frontend without regressions.

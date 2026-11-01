@@ -5,6 +5,8 @@ import type { SpaSession, UpstreamProvider, UpstreamSelection } from './types.ts
 const GATEWAY = 'sf.spa.gatewayBase'
 const DOMAIN = 'sf.spa.domainId'
 const ARMED = 'sf.spa.overridesArmed'
+
+export const DEFAULT_OVERRIDES_ARMED = false
 const L1 = 'sf.spa.l1'
 const L2 = 'sf.spa.l2'
 const QUORUM = 'sf.spa.quorumK'
@@ -97,10 +99,11 @@ export function loadSession(store: SessionStore): SpaSession {
   const provider = isUpstreamProvider(storedProvider) ? storedProvider : 'mock'
   const gateway = store.getItem(GATEWAY)?.trim()
   const domain = store.getItem(DOMAIN)
+  const armed = store.getItem(ARMED)
   return {
     gatewayBase: gateway ? gateway : defaultGatewayBase(),
     domainId: domain === null ? 'python' : domain,
-    overridesArmed: store.getItem(ARMED) === '1',
+    overridesArmed: armed === null ? DEFAULT_OVERRIDES_ARMED : armed === '1',
     overrides: {
       l1_threshold: readStoredFloat(store.getItem(L1), 0.5, 0, 1, 2),
       l2_threshold: readStoredFloat(store.getItem(L2), 0.5, 0, 1, 2),

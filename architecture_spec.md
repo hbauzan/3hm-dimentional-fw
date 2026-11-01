@@ -16,6 +16,8 @@ Each **DomainHypercubeLock** carries its own cosine threshold. Allowlist polarit
 
 **ClauseSegmenter** splits the prompt, then each clause is scored against the same centroid. A breach on clause `m` stops the cascade before Tier 3.
 
+Option 2C delimiters are newline, `;`, `,`, `#`, `.` `!` `?` when followed by whitespace or EOF, the quote and comment markers, and these case-insensitive connectors: ` y de paso `, ` además `, ` también `, ` pero `, ` y `, ` o `, ` and `, ` also `, ` plus `, ` but `, ` or `, ` und `, ` außerdem `, ` aber `. The connector text is not part of either clause. A clause of more than 14 words is re-sliced into windows of 10 words with stride 5.
+
 ## ADR-004 — Tier 3 pluggable inspector
 
 - Mode A: every active Top-K coordinate lies inside the pre-dilated box.
@@ -23,6 +25,34 @@ Each **DomainHypercubeLock** carries its own cosine threshold. Allowlist polarit
 - Mode C: affirmative votes reach **SpectralQuorum** `K` (default 103).
 
 `epsilon = 0` across all 1024 coordinates and PCA reduction are rejected.
+
+## ADR-005 — Pairwise containment
+
+A canonical domain request passes the primary **DomainHypercubeLock** (L1, L2, L3) and then Tier-3 Mode C on every **PairwiseDifferentialLock** whose id names that domain. Registries that contain no pairwise rows keep the single-lock cascade.
+
+The pair id is lexicographic `left_right`. The stored envelope is `left`'s coordinate range. Discriminative coordinates are those outside the nine universal noise indices whose ranges do not overlap; the mask keeps the 103 largest separations, or every remaining coordinate when fewer than 103 separate. Quorum is 103 in the first case and `ceil(0.10 * active)` in the second. An empty mask fails closed with quorum 1.
+
+Evaluation polarity follows the side under test. Target `left` must sit inside the envelope. Target `right` must miss quorum inside that same envelope. The first failing vector aborts. The full prompt uses no clause index. A clause failure reports that index.
+
+```json
+{
+  "error": {
+    "kind": "ddi_ingress_breach",
+    "code": "SEMANTIC_CONTAINMENT_BREACH",
+    "message": "Fail-closed containment breach on pairwise lock 'python_receta' for clause #1.",
+    "telemetry": {
+      "domain_id": "python",
+      "breaching_pair_lock": "python_receta",
+      "breaching_clause_index": 1,
+      "failing_tier": "L3_PAIRWISE_QUORUM"
+    }
+  }
+}
+```
+
+`calibrate_canonical_pairs` embeds 16 seed sentences per canonical domain through TEI (`BAAI/bge-m3`) and overwrites `domain_hypercubes` with the 11 domain locks plus the 55 pairwise locks. The centroid of a pair is the L2-normalized difference of the two means, accumulated in binary64.
+
+Request `quorum_k` is clamped to `[1, noise_mask.active_count()]` on the cloned lock. The playground omits `overrides` until the operator arms live tuning, so an unarmed session uses the stored quorum.
 
 ## Resolved execution decisions
 
@@ -65,4 +95,15 @@ The `sf-proxy` binary loads a LanceDB registry and serves both ingress routes on
 
 `SF_CORS_ORIGIN` sets `Access-Control-Allow-Origin`. An empty value or `*` allows any origin. Chat overrides clone the **DomainHypercubeLock** for that request. A registry write happens only through an explicit LanceDB reload.
 
-The playground in `frontend/` is a separate origin. It posts to `/api/v1/chat` on this daemon and reads `ChatBreachDto` or the unbuffered event stream. The dev server does not proxy that call. API keys stay in browser `localStorage`.
+The playground in `frontend/` is a separate origin. It posts to `/api/v1/chat` on this daemon and reads `ChatBreachDto` or the unbuffered event stream. A pairwise breach uses the ADR-005 envelope instead of `ChatBreachDto`. The dev server does not proxy that call. API keys stay in browser `localStorage`. Live tuning starts disarmed.
+
+## Egress semantic amplification (next milestone, not implemented)
+
+Upstream SSE bytes still pass through `upstream.rs` unchanged after ingress allows the prompt. The next gate wraps that stream:
+
+1. Buffer text deltas into word windows of 30 with stride 15.
+2. Embed each window with the local `BAAI/bge-m3` embedder.
+3. Score the window on the session's primary lock and on the ten pairwise locks that name that domain, using the same polarity rule as ADR-005.
+4. On breach, drop the upstream connection and emit one SSE event: `event: sf_egress_breach` with `failing_tier: EGRESS_L3`.
+
+No production type implements this stream in the current milestone.

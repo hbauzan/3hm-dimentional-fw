@@ -7,15 +7,15 @@ use std::sync::{Arc, Mutex};
 
 use async_trait::async_trait;
 use axum::extract::State;
-use axum::http::{HeaderMap, StatusCode};
+use axum::http::{HeaderMap, HeaderValue, StatusCode};
 use axum::response::{IntoResponse, Response};
 use axum::Json;
 use bytes::Bytes;
 use sf_kernels::{AlignedVec1024, DomainHypercubeLock};
 use sf_proxy::{
-    apply_chat_overrides, chat_upstream_body, evaluate_chat_cascade, latest_chat_user_text,
-    resolve_chat_upstream, segment_prompt_clauses, ChatRequestDto, ChatUpstream,
-    MockUpstreamForwarder, UpstreamLlmForwarder,
+    apply_chat_overrides, chat_upstream_body, evaluate_chat_cascade, evaluate_pairwise_containment,
+    latest_chat_user_text, pairwise_breach_envelope, resolve_chat_upstream, segment_prompt_clauses,
+    ChatRequestDto, ChatUpstream, MockUpstreamForwarder, UpstreamLlmForwarder,
 };
 
 pub use crate::embedder::{
@@ -123,8 +123,19 @@ pub async fn handle_chat(
         .map(|clause| state.prompt_embedder.embed(clause, &lock))
         .collect();
 
-    if let Err(dto) = evaluate_chat_cascade(&prompt_vec, &clauses, &clause_vecs, &lock) {
-        return (StatusCode::FORBIDDEN, Json(*dto)).into_response();
+    let gate_dto = match evaluate_chat_cascade(&prompt_vec, &clauses, &clause_vecs, &lock) {
+        Ok(dto) => dto,
+        Err(dto) => return (StatusCode::FORBIDDEN, Json(*dto)).into_response(),
+    };
+    let pairs = state.registry.pairwise_locks_for(&lock.domain_id);
+    if let Err(breach) =
+        evaluate_pairwise_containment(&prompt_vec, &clause_vecs, &lock.domain_id, &pairs)
+    {
+        return (
+            StatusCode::FORBIDDEN,
+            Json(pairwise_breach_envelope(breach)),
+        )
+            .into_response();
     }
 
     let upstream = match resolve_chat_upstream(payload.upstream.as_ref()) {
@@ -154,7 +165,19 @@ pub async fn handle_chat(
     };
 
     match forwarded {
-        Ok(response) => response,
+        Ok(mut response) => {
+            let headers = response.headers_mut();
+            headers.insert("x-sf-decision", HeaderValue::from_static("PASS"));
+            if let Ok(value) = HeaderValue::from_str(&clauses.len().to_string()) {
+                headers.insert("x-sf-clauses-evaluated", value);
+            }
+            if let Ok(json_str) = serde_json::to_string(&gate_dto) {
+                if let Ok(val) = HeaderValue::from_str(&json_str) {
+                    headers.insert("x-sf-telemetry", val);
+                }
+            }
+            response
+        }
         Err(err) => json_error(StatusCode::BAD_GATEWAY, err),
     }
 }

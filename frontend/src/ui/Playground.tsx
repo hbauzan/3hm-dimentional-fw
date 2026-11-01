@@ -14,12 +14,13 @@ import {
 import {
   UPSTREAM_PROVIDERS,
   type ChatBreachDto,
+  type ChatTelemetryDto,
   type ChatMessage,
   type SpaSession,
   type UpstreamProvider,
 } from '../domain/types.ts'
 import { fetchUpstreamEnvCatalog, postChat } from '../gateway/client.ts'
-import { BreachCard } from './BreachCard.tsx'
+import { BreachCard, PassCard } from './BreachCard.tsx'
 
 const browserStore = browserSessionStore()
 
@@ -28,7 +29,7 @@ const fieldClass =
 
 type Turn =
   | { id: string; kind: 'user'; text: string }
-  | { id: string; kind: 'assistant'; text: string; streaming: boolean }
+  | { id: string; kind: 'assistant'; text: string; streaming: boolean; telemetry?: ChatTelemetryDto }
   | { id: string; kind: 'breach'; breach: ChatBreachDto }
   | { id: string; kind: 'error'; status: number; message: string }
 
@@ -150,12 +151,27 @@ export function Playground({
           ),
         )
       },
+      onTelemetry(telemetry) {
+        setTurns((current) =>
+          current.map((turn) =>
+            turn.kind === 'assistant' && turn.id === pendingId
+              ? { ...turn, telemetry }
+              : turn,
+          ),
+        )
+      },
     })
     setTurns((current) =>
       current.map((turn) => {
         if (turn.id !== pendingId) return turn
         if (outcome.kind === 'pass') {
-          return { id: pendingId, kind: 'assistant', text: outcome.text, streaming: false }
+          return {
+            id: pendingId,
+            kind: 'assistant',
+            text: outcome.text,
+            streaming: false,
+            telemetry: outcome.telemetry ?? (turn.kind === 'assistant' ? turn.telemetry : undefined),
+          }
         }
         if (outcome.kind === 'breach') return { id: pendingId, kind: 'breach', breach: outcome.breach }
         return { id: pendingId, kind: 'error', status: outcome.status, message: outcome.message }
@@ -489,10 +505,16 @@ function TurnView({ turn }: { turn: Turn }) {
     )
   }
   if (turn.streaming) {
-    return <p className="whitespace-pre-wrap px-2 py-2 text-xs">{turn.text}</p>
+    return (
+      <div className="px-2 py-2 text-xs">
+        {turn.telemetry ? <PassCard telemetry={turn.telemetry} /> : null}
+        <p className="whitespace-pre-wrap">{turn.text}</p>
+      </div>
+    )
   }
   return (
     <div className="px-2 py-2 text-xs">
+      {turn.telemetry ? <PassCard telemetry={turn.telemetry} /> : null}
       {splitFences(turn.text).map((part, index) =>
         part.kind === 'code' ? (
           <pre key={index} className="overflow-auto border border-studio-line bg-studio-bg p-2 text-xs">

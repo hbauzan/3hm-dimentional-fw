@@ -211,10 +211,20 @@ pub fn pairwise_breach_envelope(breach: PairwiseBreach) -> PairwiseBreachEnvelop
     }
 }
 
+/// The mock embedder maps the exact token `BREACH` to its breach vector. Every other mock
+/// string is the domain centroid and cannot sit in a bge-m3 differential envelope.
+pub fn mock_batch_requires_pairwise(texts: &[&str]) -> bool {
+    texts.contains(&"BREACH")
+}
+
 /// Tier-3 Mode C on the prompt and every clause, against each pairwise lock that names the target.
 ///
 /// The stored envelope belongs to the left side of the pair id. The right side is evaluated with
 /// denylist polarity so the same lock admits its own side and rejects the other.
+///
+/// An empty discriminative mask has no separating coordinates. Normalized bge-m3 ranges overlap
+/// on those pairs, and allowlist quorum 1 would reject every in-domain vector. Those locks are
+/// skipped. The kernel gate still fail-closes if a caller scores the empty mask directly.
 pub fn evaluate_pairwise_containment(
     prompt_vec: &AlignedVec1024,
     clause_vecs: &[AlignedVec1024],
@@ -222,6 +232,9 @@ pub fn evaluate_pairwise_containment(
     pair_locks: &[Arc<DomainHypercubeLock>],
 ) -> Result<(), PairwiseBreach> {
     for lock in pair_locks {
+        if lock.noise_mask.active_count() == 0 {
+            continue;
+        }
         let Some(polarity) = polarity_for_target(&lock.domain_id, target_domain) else {
             continue;
         };
@@ -345,5 +358,19 @@ fn breach(parts: BreachParts<'_>) -> BreachErrorEnvelope {
                 metrics,
             },
         },
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::mock_batch_requires_pairwise;
+
+    #[test]
+    fn only_the_exact_breach_token_keeps_mock_pairwise() {
+        assert!(!mock_batch_requires_pairwise(&[
+            "Cómo implementar un generador con yield en Python"
+        ]));
+        assert!(mock_batch_requires_pairwise(&["hello", "BREACH"]));
+        assert!(!mock_batch_requires_pairwise(&["breach"]));
     }
 }

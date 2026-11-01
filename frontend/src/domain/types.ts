@@ -2,6 +2,7 @@ export const FAILING_TIERS = [
   'L1_CENTROID_COSINE',
   'L2_CLAUSE_GATE',
   'L3_SPECTRAL_QUORUM',
+  'L3_PAIRWISE_QUORUM',
 ] as const
 
 export type FailingTier = (typeof FAILING_TIERS)[number]
@@ -61,10 +62,17 @@ export interface UpstreamEnvCatalogDto {
   providers: Record<string, ProviderEnvDto>
 }
 
+export interface ChatOverrideBody {
+  l1_threshold: number
+  l2_threshold: number
+  quorum_k: number
+  epsilon?: number
+}
+
 export interface ChatRequest {
   messages: ChatMessage[]
   domain_id?: string
-  overrides?: ChatOverrides
+  overrides?: ChatOverrideBody
   upstream: ChatUpstreamBody
 }
 
@@ -72,6 +80,8 @@ export interface ChatDraft {
   messages: readonly ChatMessage[]
   domainId: string
   overridesArmed: boolean
+  /** When false or omitted, the request leaves the stored dilation untouched. */
+  epsilonPinned?: boolean
   overrides: ChatOverrides
   upstream: UpstreamSelection
 }
@@ -116,6 +126,8 @@ export interface SpaSession {
   gatewayBase: string
   domainId: string
   overridesArmed: boolean
+  /** When false or omitted, live tuning does not post `epsilon`. */
+  epsilonPinned?: boolean
   overrides: ChatOverrides
   upstream: UpstreamSelection
 }

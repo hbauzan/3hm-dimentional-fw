@@ -79,6 +79,15 @@ describe('session store', () => {
     expect(loaded.upstream.model).toBe(PROVIDER_DEFAULTS.gemini.model)
   })
 
+  it('persists an epsilon pin separately from the stored slider number', () => {
+    const store = memorySessionStore()
+    saveSession(store, session({ epsilonPinned: true }))
+    expect(loadSession(store).epsilonPinned).toBe(true)
+    expect(loadSession(store).overrides.epsilon).toBe(0.05)
+    saveSession(store, session({ epsilonPinned: false }))
+    expect(loadSession(store).epsilonPinned).toBe(false)
+  })
+
   it('defaults an empty store to the local gateway without overriding the lock', () => {
     const loaded = loadSession(memorySessionStore())
     expect(loaded.gatewayBase).toBe('http://127.0.0.1:8088')

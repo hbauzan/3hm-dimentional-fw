@@ -14,8 +14,8 @@ mod telemetry;
 mod upstream;
 
 pub use cascade::{
-    evaluate_pairwise_containment, evaluate_three_tier_cascade, pairwise_breach_envelope,
-    sha256_hex, PairwiseBreach, PairwiseBreachEnvelope,
+    evaluate_pairwise_containment, evaluate_three_tier_cascade, mock_batch_requires_pairwise,
+    pairwise_breach_envelope, sha256_hex, PairwiseBreach, PairwiseBreachEnvelope,
 };
 pub use chat_api::{
     apply_chat_overrides, chat_upstream_body, evaluate_chat_cascade, latest_chat_user_text,
@@ -24,7 +24,9 @@ pub use chat_api::{
     UpstreamConfigDto,
 };
 pub use cors::CorsAllow;
-pub use embedder::{BatchEmbedderClient, MockBatchEmbedder};
+pub use embedder::{
+    contains_permutation_noise, project_spectral_drift, BatchEmbedderClient, MockBatchEmbedder,
+};
 pub use env_config::{
     find_env_file, get_all_providers_env, get_provider_env, load_dotenv, parse_env_content,
     read_env_file_map, ProviderEnvInfo, UpstreamEnvCatalog,

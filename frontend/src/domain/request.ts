@@ -2,6 +2,7 @@ import { normalizeOverrides } from './overrides.ts'
 import type {
   ChatDraft,
   ChatMessage,
+  ChatOverrideBody,
   ChatRequest,
   ChatUpstreamBody,
   UpstreamSelection,
@@ -17,8 +18,19 @@ export function buildChatRequest(draft: ChatDraft): ChatRequest {
   }
   const domainId = draft.domainId.trim()
   if (domainId) request.domain_id = domainId
-  if (draft.overridesArmed) request.overrides = normalizeOverrides(draft.overrides)
+  if (draft.overridesArmed) request.overrides = overrideBody(draft)
   return request
+}
+
+function overrideBody(draft: ChatDraft): ChatOverrideBody {
+  const normalized = normalizeOverrides(draft.overrides)
+  const body: ChatOverrideBody = {
+    l1_threshold: normalized.l1_threshold,
+    l2_threshold: normalized.l2_threshold,
+    quorum_k: normalized.quorum_k,
+  }
+  if (draft.epsilonPinned) body.epsilon = normalized.epsilon
+  return body
 }
 
 export function hasUserText(messages: readonly ChatMessage[]): boolean {

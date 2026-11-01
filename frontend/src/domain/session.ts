@@ -11,6 +11,7 @@ const L1 = 'sf.spa.l1'
 const L2 = 'sf.spa.l2'
 const QUORUM = 'sf.spa.quorumK'
 const EPSILON = 'sf.spa.epsilon'
+const EPSILON_PINNED = 'sf.spa.epsilonPinned'
 const PROVIDER = 'sf.spa.provider'
 
 const USE_ENV = 'sf.spa.useEnv'
@@ -104,6 +105,7 @@ export function loadSession(store: SessionStore): SpaSession {
     gatewayBase: gateway ? gateway : defaultGatewayBase(),
     domainId: domain === null ? 'python' : domain,
     overridesArmed: armed === null ? DEFAULT_OVERRIDES_ARMED : armed === '1',
+    epsilonPinned: store.getItem(EPSILON_PINNED) === '1',
     overrides: {
       l1_threshold: readStoredFloat(store.getItem(L1), 0.5, 0, 1, 2),
       l2_threshold: readStoredFloat(store.getItem(L2), 0.5, 0, 1, 2),
@@ -122,6 +124,7 @@ export function saveSession(store: SessionStore, session: SpaSession): void {
   store.setItem(L2, String(session.overrides.l2_threshold))
   store.setItem(QUORUM, String(session.overrides.quorum_k))
   store.setItem(EPSILON, String(session.overrides.epsilon))
+  store.setItem(EPSILON_PINNED, session.epsilonPinned ? '1' : '0')
   store.setItem(PROVIDER, session.upstream.provider)
   store.setItem(USE_ENV, session.upstream.useEnv ? '1' : '0')
   store.setItem(baseUrlKey(session.upstream.provider), session.upstream.baseUrl)

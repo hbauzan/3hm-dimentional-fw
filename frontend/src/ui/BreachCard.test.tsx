@@ -65,6 +65,27 @@ describe('BreachCard', () => {
     expect(screen.getByText(/0\.4200 < Threshold: 0\.6500/)).toBeTruthy()
   })
 
+  it('names the pairwise lock and clause', () => {
+    render(
+      <BreachCard
+        breach={{
+          decision: 'BREACH',
+          failing_tier: 'L3_PAIRWISE_QUORUM',
+          l1: { passed: true, cosine: 0, threshold: 0 },
+          l2: {
+            passed: false,
+            threshold: 0,
+            breached_clause_index: 1,
+            breached_clause_text: 'python_receta',
+          },
+          l3: { evaluated: false },
+        }}
+      />,
+    )
+    expect(screen.getByText('L3_PAIRWISE_QUORUM')).toBeTruthy()
+    expect(screen.getByText('python_receta · clause #1')).toBeTruthy()
+  })
+
   it('shows spectral quorum votes against K', () => {
     render(<BreachCard breach={l3} />)
     expect(screen.getByText('Affirmative votes 12 / K 103')).toBeTruthy()

@@ -48,6 +48,48 @@ describe('parseChatBreach', () => {
     expect(parsed.value.failing_tier).toBe('L3_SPECTRAL_QUORUM')
   })
 
+  it('maps a pairwise envelope onto L3_PAIRWISE_QUORUM', () => {
+    const parsed = parseChatBreach({
+      error: {
+        kind: 'ddi_ingress_breach',
+        code: 'SEMANTIC_CONTAINMENT_BREACH',
+        message:
+          "Fail-closed containment breach on pairwise lock 'python_receta' for clause #1.",
+        telemetry: {
+          domain_id: 'python',
+          breaching_pair_lock: 'python_receta',
+          breaching_clause_index: 1,
+          failing_tier: 'L3_PAIRWISE_QUORUM',
+        },
+      },
+    })
+    expect(parsed.ok).toBe(true)
+    if (!parsed.ok) return
+    expect(parsed.value.decision).toBe('BREACH')
+    expect(parsed.value.failing_tier).toBe('L3_PAIRWISE_QUORUM')
+    expect(parsed.value.l2.passed).toBe(false)
+    expect(parsed.value.l2.breached_clause_text).toBe('python_receta')
+    expect(parsed.value.l2.breached_clause_index).toBe(1)
+
+    const promptLevel = parseChatBreach({
+      error: {
+        kind: 'ddi_ingress_breach',
+        code: 'SEMANTIC_CONTAINMENT_BREACH',
+        message: 'full prompt',
+        telemetry: {
+          domain_id: 'python',
+          breaching_pair_lock: 'python_receta',
+          breaching_clause_index: null,
+          failing_tier: 'L3_PAIRWISE_QUORUM',
+        },
+      },
+    })
+    expect(promptLevel.ok).toBe(true)
+    if (!promptLevel.ok) return
+    expect(promptLevel.value.l2.breached_clause_index).toBeUndefined()
+    expect(promptLevel.value.l2.breached_clause_text).toBe('python_receta')
+  })
+
   it('rejects a fail-closed error body and a partial breach', () => {
     expect(parseChatBreach({ error: 'Fail-closed: embedding subsystem error: boom' }).ok).toBe(
       false,

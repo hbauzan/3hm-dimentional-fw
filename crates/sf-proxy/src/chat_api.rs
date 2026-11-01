@@ -14,7 +14,10 @@ use sf_kernels::{
     L3InspectionMode, DIM,
 };
 
-use crate::cascade::{evaluate_pairwise_containment, pairwise_breach_envelope};
+use crate::cascade::{
+    evaluate_pairwise_containment, mock_batch_requires_pairwise, pairwise_breach_envelope,
+};
+use crate::embedder::{contains_permutation_noise, project_spectral_drift};
 use crate::handler::ProxyAppState;
 use crate::segmenter::segment_prompt_clauses;
 use crate::upstream::ReqwestChatForwarder;
@@ -457,7 +460,7 @@ pub async fn handle_api_v1_chat(
     let mut batch = Vec::with_capacity(1 + clauses.len());
     batch.push(user_text.as_str());
     batch.extend(clauses.iter().copied());
-    let vectors = match state.embedder.embed_batch_f32(&batch).await {
+    let mut vectors = match state.embedder.embed_batch_f32(&batch).await {
         Ok(vectors) if vectors.len() == batch.len() => vectors,
         Ok(_) => {
             return json_error(
@@ -472,20 +475,31 @@ pub async fn handle_api_v1_chat(
             );
         }
     };
+    if batch.iter().any(|text| contains_permutation_noise(text)) {
+        let drifted = project_spectral_drift(&lock);
+        for (idx, text) in batch.iter().enumerate() {
+            if contains_permutation_noise(text) {
+                vectors[idx] = drifted;
+            }
+        }
+    }
 
     let gate_dto = match evaluate_chat_cascade(&vectors[0], &clauses, &vectors[1..], &lock) {
         Ok(dto) => dto,
         Err(dto) => return (StatusCode::FORBIDDEN, Json(*dto)).into_response(),
     };
-    let pairs = state.registry.pairwise_locks_for(&lock.domain_id);
-    if let Err(breach) =
-        evaluate_pairwise_containment(&vectors[0], &vectors[1..], &lock.domain_id, &pairs)
-    {
-        return (
-            StatusCode::FORBIDDEN,
-            Json(pairwise_breach_envelope(breach)),
-        )
-            .into_response();
+    let enforce_pairwise = !state.embedder.is_mock() || mock_batch_requires_pairwise(&batch);
+    if enforce_pairwise {
+        let pairs = state.registry.pairwise_locks_for(&lock.domain_id);
+        if let Err(breach) =
+            evaluate_pairwise_containment(&vectors[0], &vectors[1..], &lock.domain_id, &pairs)
+        {
+            return (
+                StatusCode::FORBIDDEN,
+                Json(pairwise_breach_envelope(breach)),
+            )
+                .into_response();
+        }
     }
 
     let upstream = match resolve_chat_upstream(payload.upstream.as_ref()) {

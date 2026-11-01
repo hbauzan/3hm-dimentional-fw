@@ -4,6 +4,8 @@ import { FAILING_TIERS, type ChatBreachDto, type ChatTelemetryDto, type FailingT
 
 export function parseChatBreach(value: unknown): ParseResult<ChatBreachDto> {
   if (!isRecord(value)) return fail('breach payload is not an object')
+  const pairwise = parsePairwiseEnvelope(value)
+  if (pairwise) return pairwise
   if (value.decision !== 'BREACH') return fail('decision is not BREACH')
   if (!isFailingTier(value.failing_tier)) return fail('failing_tier is not a chat head')
   const l1 = parseTier1(value.l1)
@@ -37,6 +39,40 @@ export function parseChatTelemetry(value: unknown): ParseResult<ChatTelemetryDto
     l2: l2.value,
     l3: l3.value,
   })
+}
+
+function parsePairwiseEnvelope(value: Record<string, unknown>): ParseResult<ChatBreachDto> | null {
+  const error = value.error
+  if (!isRecord(error) || error.kind !== 'ddi_ingress_breach') return null
+  const telemetry = error.telemetry
+  if (!isRecord(telemetry)) return fail('pairwise telemetry is missing')
+  if (telemetry.failing_tier !== 'L3_PAIRWISE_QUORUM') {
+    return fail('pairwise failing_tier is not L3_PAIRWISE_QUORUM')
+  }
+  const pair = telemetry.breaching_pair_lock
+  if (typeof pair !== 'string' || pair.trim() === '') return fail('breaching_pair_lock is missing')
+  const index = readNullableIndex(telemetry.breaching_clause_index)
+  if (!index.ok) return index
+  const l2: Tier2Breach = {
+    passed: false,
+    threshold: 0,
+    breached_clause_text: pair,
+  }
+  if (index.value !== undefined) l2.breached_clause_index = index.value
+  return ok({
+    decision: 'BREACH',
+    failing_tier: 'L3_PAIRWISE_QUORUM',
+    l1: { passed: true, cosine: 0, threshold: 0 },
+    l2,
+    l3: { evaluated: false },
+  })
+}
+
+function readNullableIndex(value: unknown): ParseResult<number | undefined> {
+  if (value === undefined || value === null) return ok(undefined)
+  const index = readInt(value)
+  if (index === undefined) return fail('breaching_clause_index is not a non-negative integer')
+  return ok(index)
 }
 
 function isFailingTier(value: unknown): value is FailingTier {

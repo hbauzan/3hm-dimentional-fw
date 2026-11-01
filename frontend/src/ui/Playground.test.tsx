@@ -266,5 +266,33 @@ describe('Playground', () => {
     expect(body.upstream.model).toBe('gemini-3.8-flash')
     expect(body.upstream.use_env).toBe(true)
   })
+
+  it('sends the selected canonical domain on POST /api/v1/chat', async () => {
+    const user = userEvent.setup()
+    const { fetchImpl, sent } = recordingFetch(() => sseResponse([delta('ok')]))
+    render(<Playground fetchImpl={fetchImpl} store={memorySessionStore()} />)
+
+    await user.selectOptions(screen.getByRole('combobox', { name: 'Domain id' }), 'legal')
+    await user.type(screen.getByRole('textbox', { name: 'Prompt' }), 'hola')
+    await user.click(screen.getByRole('button', { name: 'Send' }))
+    await screen.findByText('ok')
+
+    const body = sent[0]?.body as { domain_id: string }
+    expect(body.domain_id).toBe('legal')
+    expect(sent[0]?.url).toBe('http://127.0.0.1:8088/api/v1/chat')
+  })
+
+  it('keeps a stored custom domain as an extra option', () => {
+    render(
+      <Playground
+        fetchImpl={async () => sseResponse([delta('x')])}
+        store={memorySessionStore({ 'sf.spa.domainId': 'python_receta' })}
+      />,
+    )
+
+    const domain = screen.getByRole('combobox', { name: 'Domain id' })
+    expect(fieldValue(domain)).toBe('python_receta')
+    expect(screen.getByRole('option', { name: 'python_receta (custom)' })).toBeTruthy()
+  })
 })
 

@@ -35,6 +35,26 @@ export const PROMPT_PRESETS = [
   },
 ] as const
 
+export const CANONICAL_DOMAINS = [
+  'python',
+  'receta',
+  'legal',
+  'medicina',
+  'astronomia',
+  'finanzas',
+  'filosofia',
+  'musica',
+  'geologia',
+  'botanica',
+  'arquitectura',
+] as const
+
+export type CanonicalDomain = (typeof CANONICAL_DOMAINS)[number]
+
+export function isCanonicalDomain(value: string): value is CanonicalDomain {
+  return (CANONICAL_DOMAINS as readonly string[]).includes(value)
+}
+
 export function isUpstreamProvider(value: string): value is UpstreamProvider {
   return (UPSTREAM_PROVIDERS as readonly string[]).includes(value)
 }

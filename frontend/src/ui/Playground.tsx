@@ -2,7 +2,12 @@ import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from 
 import { resolveChatEndpoint } from '../domain/endpoint.ts'
 import { splitFences } from '../domain/format.ts'
 import { clampFloat, clampInt } from '../domain/overrides.ts'
-import { PROMPT_PRESETS, isUpstreamProvider } from '../domain/presets.ts'
+import {
+  CANONICAL_DOMAINS,
+  PROMPT_PRESETS,
+  isCanonicalDomain,
+  isUpstreamProvider,
+} from '../domain/presets.ts'
 import { buildChatRequest } from '../domain/request.ts'
 import {
   browserSessionStore,
@@ -264,15 +269,23 @@ export function Playground({
           </label>
           <label className="flex flex-col gap-1 text-[10px] uppercase tracking-wide text-studio-muted">
             Domain id
-            <input
+            <select
+              aria-label="Domain id"
               className={fieldClass}
               value={session.domainId}
-              spellCheck={false}
-              autoComplete="off"
               onChange={(event) =>
                 commit((current) => ({ ...current, domainId: event.target.value }))
               }
-            />
+            >
+              {CANONICAL_DOMAINS.map((domain) => (
+                <option key={domain} value={domain}>
+                  {domain}
+                </option>
+              ))}
+              {!isCanonicalDomain(session.domainId) && session.domainId ? (
+                <option value={session.domainId}>{session.domainId} (custom)</option>
+              ) : null}
+            </select>
           </label>
           <label className="flex items-center gap-2 cursor-pointer text-[10px] uppercase tracking-wide text-studio-muted hover:text-studio-text">
             <input

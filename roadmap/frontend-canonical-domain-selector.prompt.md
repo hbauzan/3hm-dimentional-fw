@@ -127,8 +127,8 @@ cd frontend && pnpm run build
 ```
 
 ### 5.3 Definition of Done
-- [ ] `CANONICAL_DOMAINS` exported from `frontend/src/domain/presets.ts` with all 11 domains.
-- [ ] `Domain id` in `frontend/src/ui/Playground.tsx` rendered as a styled `<select>` matching studio theme.
-- [ ] Non-canonical domain preserved if loaded from stored session.
-- [ ] New unit test in `Playground.test.tsx` verifying selecting another domain (e.g., `'legal'`) sends `"domain_id": "legal"` in the chat request body.
-- [ ] 100% tests passing in Vitest (37+ tests) with zero errors in `pnpm run lint` and `pnpm run build`.
+- [x] `CANONICAL_DOMAINS` exported from `frontend/src/domain/presets.ts` with all 11 domains.
+- [x] `Domain id` in `frontend/src/ui/Playground.tsx` rendered as a styled `<select>` matching studio theme.
+- [x] Non-canonical domain preserved if loaded from stored session.
+- [x] New unit test in `Playground.test.tsx` verifying selecting another domain (e.g., `'legal'`) sends `"domain_id": "legal"` in the chat request body.
+- [x] 100% tests passing in Vitest (37+ tests) with zero errors in `pnpm run lint` and `pnpm run build`.

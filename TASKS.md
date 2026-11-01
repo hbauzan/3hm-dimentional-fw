@@ -1,6 +1,6 @@
 ---
 task_id: "TASK-004"
-status: "PENDING"
+status: "DONE"
 assigned_architect: "maximum-architect-agent"
 protocol: "transparent-dev-protocol"
 title: "Frontend Canonical Domain Selector in Playground"
@@ -19,6 +19,6 @@ Replace the raw free-text `<input>` under "Domain id" in `frontend/src/ui/Playgr
 - **Exclusive Authorship**: Sole author and collaborator in Git commits is `hbauzan` (`Héctor Andrés Bauzán Saavedra` <`hbauzan@gmail.com`>). No AI or bot co-authorship trailers.
 
 ## 3. Tracer Bullet Slices
-- [ ] **Tracer Bullet 1 (Canonical Domain Constants)**: Export `CANONICAL_DOMAINS` and `CanonicalDomain` type from `frontend/src/domain/presets.ts`.
-- [ ] **Tracer Bullet 2 (Playground Selector & Custom Domain Fallback)**: Replace `<input>` with `<select aria-label="Domain id">` in `frontend/src/ui/Playground.tsx`, mapping canonical domains and rendering custom domain fallback if loaded from session.
-- [ ] **Tracer Bullet 3 (Verification & Regression Tests)**: Add unit test in `frontend/src/ui/Playground.test.tsx` asserting selection changes propagate to POST `/api/v1/chat` body; verify 100% pass across `pnpm test`, `pnpm run lint`, and `pnpm run build`.
+- [x] **Tracer Bullet 1 (Canonical Domain Constants)**: Export `CANONICAL_DOMAINS` and `CanonicalDomain` type from `frontend/src/domain/presets.ts`.
+- [x] **Tracer Bullet 2 (Playground Selector & Custom Domain Fallback)**: Replace `<input>` with `<select aria-label="Domain id">` in `frontend/src/ui/Playground.tsx`, mapping canonical domains and rendering custom domain fallback if loaded from session.
+- [x] **Tracer Bullet 3 (Verification & Regression Tests)**: Add unit test in `frontend/src/ui/Playground.test.tsx` asserting selection changes propagate to POST `/api/v1/chat` body; verify 100% pass across `pnpm test`, `pnpm run lint`, and `pnpm run build`.
